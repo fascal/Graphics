@@ -13,6 +13,7 @@ void init(int argc, char **argv);
 GLuint program;
 
 using namespace std;
+GLuint buffer[2];
 
 void display( void )
 {
@@ -55,6 +56,25 @@ void display( void )
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[0]);
+	GLuint vPosition = glGetAttribLocation(program, "vPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+	GLuint vColor = glGetAttribLocation(program, "vColor");
+	glEnableVertexAttribArray(vColor);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 3));
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[1]);
+	vPosition = glGetAttribLocation(program, "vPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+	vColor = glGetAttribLocation(program, "vColor");
+	glEnableVertexAttribArray(vColor);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 3));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glDisable(GL_DEPTH_TEST);
 	// use this call to double buffer
@@ -98,13 +118,13 @@ void loadSTLFile() {
 	colors[1] = vec4(0, 0, 0, 1);
 	colors[2] = vec4(0, 0, 0, 1);
 
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	GLuint *vao;
+	glGenVertexArrays(2, vao);
+	glBindVertexArray(vao[0]);
 
-	GLuint buffer;
-	glGenBuffers(1, &buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	//GLuint *buffer;
+	glGenBuffers(2, buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[0]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
 
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies);
@@ -120,6 +140,18 @@ void loadSTLFile() {
 	GLuint vColor = glGetAttribLocation(program, "vColor");
 	glEnableVertexAttribArray(vColor);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* nfaces));
+
+	vec4 *vertecies2 = (vec4*)malloc(sizeof(vec4)* nfaces);
+	vertecies2[0] = vec4(0, 0, 0, 1);
+	vertecies2[1] = vec4(-0.5, -0.5, 0, 1);
+	vertecies2[2] = vec4(-0.5, 0.5, 0, 1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffer[1]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
+
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies2);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
+
 }
 
 int main(int argc, char **argv) {
