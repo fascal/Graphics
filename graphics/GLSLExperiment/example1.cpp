@@ -226,33 +226,88 @@ void keyboard( unsigned char key, int x, int y )
 
 //----------------------------------------------------------------------------
 // entry point
-int main( int argc, char **argv )
-{
-	// init glut
-    glutInit( &argc, argv );
-    glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH );
-    glutInitWindowSize( 512, 512 );
+//int main( int argc, char **argv )
+//{
+//	// init glut
+//    glutInit( &argc, argv );
+//    glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH );
+//    glutInitWindowSize( 512, 512 );
+//	width = 512;
+//	height = 512;
+//
+//	// create window
+//	// opengl can be incorperated into other packages like wxwidgets, fltoolkit, etc.
+//    glutCreateWindow( "Color Cube" );
+//
+//	// init glew
+//    glewInit();
+//
+//    generateGeometry();
+//
+//	// assign handlers
+//    glutDisplayFunc( display );
+//    glutKeyboardFunc( keyboard );
+//	// should add menus
+//	// add mouse handler
+//	// add resize window functionality (should probably try to preserve aspect ratio)
+//
+//	// enter the drawing loop
+//	// frame rate can be controlled with 
+//    glutMainLoop();
+//    return 0;
+//}
+
+int main(int argc, char **argv) {
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitWindowSize(512, 512);
 	width = 512;
 	height = 512;
 
-	// create window
-	// opengl can be incorperated into other packages like wxwidgets, fltoolkit, etc.
-    glutCreateWindow( "Color Cube" );
+	glutCreateWindow("display");
 
-	// init glew
-    glewInit();
+	glewInit();
+	int nfaces = 3;
+	vec4 *vertecies = (vec4*)malloc(sizeof(vec4)* nfaces);
+	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces);
 
-    generateGeometry();
+	vertecies[0] = vec4(0, 0, 0, 1);
+	vertecies[1] = vec4(0.5, 0.5, 0, 1);
+	vertecies[2] = vec4(0.5, -0.5, 0, 1);
 
-	// assign handlers
-    glutDisplayFunc( display );
-    glutKeyboardFunc( keyboard );
-	// should add menus
-	// add mouse handler
-	// add resize window functionality (should probably try to preserve aspect ratio)
+	colors[0] = vec4(0, 0, 0, 1);
+	colors[1] = vec4(0, 0, 0, 1);
+	colors[2] = vec4(0, 0, 0, 1);
 
-	// enter the drawing loop
-	// frame rate can be controlled with 
-    glutMainLoop();
-    return 0;
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint buffer;
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
+
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
+
+	program = InitShader("vshader1.glsl", "fshader1.glsl");
+	glUseProgram(program);
+
+	GLuint vPosition = glGetAttribLocation(program, "vPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+	GLuint vColor = glGetAttribLocation(program, "vColor");
+	glEnableVertexAttribArray(vColor);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* nfaces));
+
+	glClearColor(1, 1, 1, 1);
+
+	glutDisplayFunc(display);
+	glutKeyboardFunc(keyboard);
+	glutMainLoop();
+	cout << 3 << endl;
+	getchar();
+	return 0;
 }
