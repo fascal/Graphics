@@ -128,7 +128,7 @@ void loadSTLFile() {
 	glBindVertexArray(vao[0]);
 
 	g_buffers = (GLuint*)malloc(sizeof(GLuint)* 2);
-	g_allocatedBufferSize = 1;
+	g_allocatedBufferSize = 2;
 	g_bufferSize = 0;
 
 	glGenBuffers(2, g_buffers);
@@ -163,9 +163,7 @@ int main(int argc, char **argv) {
 }
 
 void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces) {
-	cout << g_bufferSize << endl;
 	if (g_bufferSize < g_allocatedBufferSize) {
-	
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_buffers[g_bufferSize]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
@@ -176,14 +174,6 @@ void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces) {
 		g_bufferSize++;
 	}
 	else {
-		GLuint *newBuffers = (GLuint*)malloc(sizeof(GLuint)* g_allocatedBufferSize + 5);
-		for (int i = 0; i < g_allocatedBufferSize; i++) {
-			newBuffers[i] = g_buffers[i];
-		}
-
-		g_buffers = newBuffers;
-		g_allocatedBufferSize += 5;
-		cout << g_allocatedBufferSize << endl;
-		addToBuffer(vertecies, colors, nfaces);
+		cout << "exceed buffer size limit" << endl;
 	}
 }
