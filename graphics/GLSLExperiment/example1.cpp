@@ -9,12 +9,16 @@ int height = 0;
 void display( void );
 void keyboard( unsigned char key, int x, int y );
 void init(int argc, char **argv);
+void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces);
 
-GLuint program;
+GLuint g_program;
 
 using namespace std;
-GLuint buffer[2];
+//GLuint buffer[2];
 
+GLuint *g_buffers;
+int g_bufferSize;
+int g_allocatedBufferSize;
 void display( void )
 {
 
@@ -47,9 +51,9 @@ void display( void )
 	modelMatrixf[11] = modelMat[3][2];modelMatrixf[15] = modelMat[3][3];
 	
 	// set up projection matricies
-	GLuint modelMatrix = glGetUniformLocationARB(program, "model_matrix");
+	GLuint modelMatrix = glGetUniformLocationARB(g_program, "model_matrix");
 	glUniformMatrix4fv( modelMatrix, 1, GL_FALSE, modelMatrixf );
-	GLuint viewMatrix = glGetUniformLocationARB(program, "projection_matrix");
+	GLuint viewMatrix = glGetUniformLocationARB(g_program, "projection_matrix");
 	glUniformMatrix4fv( viewMatrix, 1, GL_FALSE, viewMatrixf);
 
     glFlush(); // force output to graphics hardware
@@ -57,22 +61,22 @@ void display( void )
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer[0]);
-	GLuint vPosition = glGetAttribLocation(program, "vPosition");
+	glBindBuffer(GL_ARRAY_BUFFER, g_buffers[0]);
+	GLuint vPosition = glGetAttribLocation(g_program, "vPosition");
 	glEnableVertexAttribArray(vPosition);
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
-	GLuint vColor = glGetAttribLocation(program, "vColor");
+	GLuint vColor = glGetAttribLocation(g_program, "vColor");
 	glEnableVertexAttribArray(vColor);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 3));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer[1]);
-	vPosition = glGetAttribLocation(program, "vPosition");
+	glBindBuffer(GL_ARRAY_BUFFER, g_buffers[1]);
+	vPosition = glGetAttribLocation(g_program, "vPosition");
 	glEnableVertexAttribArray(vPosition);
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
-	vColor = glGetAttribLocation(program, "vColor");
+	vColor = glGetAttribLocation(g_program, "vColor");
 	glEnableVertexAttribArray(vColor);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 3));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -103,6 +107,7 @@ void init(int argc, char **argv) {
 	glutCreateWindow("display");
 
 	glewInit();
+
 }
 
 void loadSTLFile() {
@@ -122,35 +127,23 @@ void loadSTLFile() {
 	glGenVertexArrays(2, vao);
 	glBindVertexArray(vao[0]);
 
-	//GLuint *buffer;
-	glGenBuffers(2, buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
+	g_buffers = (GLuint*)malloc(sizeof(GLuint)* 2);
+	g_allocatedBufferSize = 1;
+	g_bufferSize = 0;
 
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
+	glGenBuffers(2, g_buffers);
 
-	program = InitShader("vshader1.glsl", "fshader1.glsl");
-	glUseProgram(program);
+	addToBuffer(vertecies, colors, nfaces);
 
-	GLuint vPosition = glGetAttribLocation(program, "vPosition");
-	glEnableVertexAttribArray(vPosition);
-	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-
-	GLuint vColor = glGetAttribLocation(program, "vColor");
-	glEnableVertexAttribArray(vColor);
-	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* nfaces));
+	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
+	glUseProgram(g_program);
 
 	vec4 *vertecies2 = (vec4*)malloc(sizeof(vec4)* nfaces);
 	vertecies2[0] = vec4(0, 0, 0, 1);
 	vertecies2[1] = vec4(-0.5, -0.5, 0, 1);
 	vertecies2[2] = vec4(-0.5, 0.5, 0, 1);
+	addToBuffer(vertecies2, colors, nfaces);
 
-	glBindBuffer(GL_ARRAY_BUFFER, buffer[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
-
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies2);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
 
 }
 
@@ -167,4 +160,30 @@ int main(int argc, char **argv) {
 	glutMainLoop();
 
 	return 0;
+}
+
+void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces) {
+	cout << g_bufferSize << endl;
+	if (g_bufferSize < g_allocatedBufferSize) {
+	
+
+		glBindBuffer(GL_ARRAY_BUFFER, g_buffers[g_bufferSize]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
+
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
+
+		g_bufferSize++;
+	}
+	else {
+		GLuint *newBuffers = (GLuint*)malloc(sizeof(GLuint)* g_allocatedBufferSize + 5);
+		for (int i = 0; i < g_allocatedBufferSize; i++) {
+			newBuffers[i] = g_buffers[i];
+		}
+
+		g_buffers = newBuffers;
+		g_allocatedBufferSize += 5;
+		cout << g_allocatedBufferSize << endl;
+		addToBuffer(vertecies, colors, nfaces);
+	}
 }
