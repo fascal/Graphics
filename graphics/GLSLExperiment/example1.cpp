@@ -15,6 +15,8 @@ void enableBuffer(int index, int size);
 void allocateMatrix(GLfloat* array, Angel::mat4 matrix);
 vec4* allocRandomColor(int nfaces);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
+mat4 getCenteringMatrix(vec4* _points, int _npoints);
+mat4 getScalingMatrix(vec4* _points, int _npoints);
 
 GLuint g_program;
 
@@ -24,6 +26,7 @@ GLuint g_program;
 GLuint *g_buffers;
 int g_bufferSize;
 int g_allocatedBufferSize;
+mat4 g_scaleMat, g_centerMat;
 
 int g_nfaces;
 void display() {
@@ -34,8 +37,8 @@ void display() {
 	float viewMatrixf[16];
 	allocateMatrix(viewMatrixf, perspectiveMat);
 	Angel::mat4 modelMat = Angel::identity();
-	float s = 1;
-	modelMat = modelMat * Angel::Translate(0.0, 0.0, -10.0f) * Angel::RotateY(45.0f) * Angel::RotateX(35.0f) * Angel::Scale(s, s, s);
+	float s = 0.5;
+	modelMat = modelMat * g_scaleMat * g_centerMat;// * Angel::Translate(0.0, 0.0, -100.0f);// * Angel::RotateY(45.0f) * Angel::RotateX(35.0f) * Angel::Scale(s, s, s);
 	float modelMatrixf[16];
 	allocateMatrix(modelMatrixf, modelMat);
 
@@ -56,42 +59,6 @@ void display() {
 	glutSwapBuffers();
 
 }
-//void display( void )
-//{
-//
-//    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );     // clear the window
-//
-//	Angel::mat4 perspectiveMat = Angel::Perspective((GLfloat)45.0, (GLfloat)width/(GLfloat)height, (GLfloat)0.1, (GLfloat) 100.0);
-//
-//	float viewMatrixf[16];
-//	allocateMatrix(viewMatrixf, perspectiveMat);
-//	
-//	Angel::mat4 modelMat = Angel::identity();
-//	modelMat = modelMat * Angel::Translate(0.0, 0.0, -2.0f) * Angel::RotateY(45.0f) * Angel::RotateX(35.0f);
-//	float modelMatrixf[16];
-//	allocateMatrix(modelMatrixf, modelMat);
-//	
-//	// set up projection matricies
-//	GLuint modelMatrix = glGetUniformLocationARB(g_program, "model_matrix");
-//	glUniformMatrix4fv( modelMatrix, 1, GL_FALSE, modelMatrixf );
-//	GLuint viewMatrix = glGetUniformLocationARB(g_program, "projection_matrix");
-//	glUniformMatrix4fv( viewMatrix, 1, GL_FALSE, viewMatrixf);
-//
-//    glFlush(); // force output to graphics hardware
-//
-//	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-//	glEnable(GL_DEPTH_TEST);
-//
-//	enableBuffer(0, 1);
-//	glDrawArrays(GL_TRIANGLES, 0, 3);
-//
-//	enableBuffer(1, 1);
-//	glDrawArrays(GL_TRIANGLES, 0, 3);
-//	glDisable(GL_DEPTH_TEST);
-//	// use this call to double buffer
-//	glutSwapBuffers();
-//	// you can implement your own buffers with textures
-//}
 
 void enableBuffer(int index, int size) {
 	glBindBuffer(GL_ARRAY_BUFFER, g_buffers[index]);
@@ -192,6 +159,9 @@ void loadVertecies() {
 
 	addToBuffer(vertecies, colors, nfaces);
 
+	g_scaleMat = getScalingMatrix(vertecies, nfaces * 3);
+	g_centerMat = getCenteringMatrix(vertecies, nfaces * 3);
+
 	//for (int i = 0; i < 10; i++) {
 	//	cout << vertecies[i] << endl;
 	//}
@@ -282,12 +252,12 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 		fread(&col, sizeof(char), 2, fp);
 	}
 	fclose(fp);
-
+	int factor = 70;
 	vec4* facebuffer = (vec4*)malloc(sizeof(vec4)* TriangleNum * 3);
 	for (int i = 0; i < TriangleNum; i++) {
 		vec4 points[3];
 		for (int j = 0; j < 3; j++) {
-			points[j] = vec4(Triangle[j * 3 + 3][i] / 200, Triangle[j * 3 + 4][i] / 200, Triangle[j * 3 + 5][i] / 200, 1);
+			points[j] = vec4(Triangle[j * 3 + 3][i] / factor, Triangle[j * 3 + 4][i] / factor, Triangle[j * 3 + 5][i] / factor, 1);
 		}
 		facebuffer[i * 3] = points[0];
 		facebuffer[i * 3 + 1] = points[1];
@@ -296,4 +266,85 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 
 	*_facebuffer = facebuffer;
 	*_nfacebuffer = TriangleNum;
+}
+
+void findBounds(GLfloat* _array, int _size, GLfloat* _min, GLfloat* _max) {
+	int i;
+	GLfloat min = 0, max = 0;
+	for (i = 0; i < _size; i++) {
+		if (i == 0) {
+			min = _array[i];
+			max = _array[i];
+		}
+		else {
+			if (_array[i] < min) {
+				min = _array[i];
+			}
+			else if (_array[i] > max) {
+				max = _array[i];
+			}
+		}
+	}
+
+	*_min = min;
+	*_max = max;
+}
+
+/*
+find bounds for all dimension for given coordinate array
+*/
+void find3DBounds(vec4* _points, int _npoints, GLfloat *_minX, GLfloat *_minY, GLfloat *_minZ, GLfloat *_maxX, GLfloat *_maxY, GLfloat *_maxZ) {
+	GLfloat *coordX, *coordY, *coordZ;
+	coordX = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
+	coordY = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
+	coordZ = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
+
+	int i;
+	for (i = 0; i < _npoints; i++) {
+		coordX[i] = _points[i].x;
+		coordY[i] = _points[i].y;
+		coordZ[i] = _points[i].z;
+	}
+
+	GLfloat minX, minY, minZ, maxX, maxY, maxZ;
+
+	findBounds(coordX, _npoints, &minX, &maxX);
+	findBounds(coordY, _npoints, &minY, &maxY);
+	findBounds(coordZ, _npoints, &minZ, &maxZ);
+
+	*_minX = minX;
+	*_minY = minY;
+	*_minZ = minZ;
+	*_maxX = maxX;
+	*_maxY = maxY;
+	*_maxZ = maxZ;
+
+}
+
+/**
+points: an array of coordinates of the vertecies
+return an matrix that centers the 3d model
+*/
+mat4 getCenteringMatrix(vec4* _points, int _npoints) {
+	GLfloat minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
+	find3DBounds(_points, _npoints, &minX, &minY, &minZ, &maxX, &maxY, &maxZ);
+	return Angel::Translate(-(maxX + minX) / 2, -(maxY + minY) / 2, -(maxZ + minZ) / 2);
+}
+
+/*
+points: an array of coordiante of the vertecies
+return an matrix that scale the 3d model within [-1, 1] on each dimension
+*/
+mat4 getScalingMatrix(vec4* _points, int _npoints) {
+	GLfloat minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
+	find3DBounds(_points, _npoints, &minX, &minY, &minZ, &maxX, &maxY, &maxZ);
+	GLfloat maxDiff = maxX - minX;
+	if (maxY - minY > maxDiff) {
+		maxDiff = maxY - minY;
+	}
+
+	if (maxZ - minZ > maxDiff) {
+		maxDiff = maxZ - minZ;
+	}
+	return Angel::Scale(1 / maxDiff, 1 / maxDiff, 1 / maxDiff);
 }
