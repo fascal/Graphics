@@ -100,7 +100,6 @@ void motionMouseFunc(int x, int y) {
 			int transX = x - g_prevMousePos[0];
 			int transY = y - g_prevMousePos[1];
 			g_transMat *= Angel::Translate(vec4(transX, -transY, 0, 1));
-			display();
 			g_prevMousePos = vec2((double)x, (double)y);
 		}
 
@@ -109,7 +108,6 @@ void motionMouseFunc(int x, int y) {
 		int rotX = x - g_prevMousePos[0];
 		int rotY = y - g_prevMousePos[1];
 		g_rotate *= Angel::RotateY(rotX) * Angel::RotateX(-rotY);
-		display();
 		g_prevMousePos = vec2((double)x, (double)y);
 
 	}
@@ -139,6 +137,7 @@ int main(int argc, char **argv) {
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mouseFunc);
 	glutMotionFunc(motionMouseFunc);
+	glutIdleFunc(display);
 	glutMainLoop();
 
 	return 0;
