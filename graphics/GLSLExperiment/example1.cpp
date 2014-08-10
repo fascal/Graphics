@@ -18,6 +18,7 @@ mat4 getCenteringMatrix(vec4* _points, int _npoints);
 mat4 getScalingMatrix(vec4* _points, int _npoints);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadVertecies();
+void gluInvertMatrix(mat4 m, mat4 &inv);
 
 GLuint g_program;
 
@@ -27,7 +28,7 @@ int height = 0;
 GLuint *g_buffers;
 int g_bufferSize, g_nfaces, g_allocatedBufferSize;
 mat4 g_nomMat, g_centerMat;
-mat4 g_scaleMat, g_transMat;
+mat4 g_scaleMat, g_transMat, g_rotate;
 vec2 g_prevMousePos = NULL;
 int g_mouseState, g_mouseButton, g_mouseFlow = 0;
 //mouse flow == 0 when no button pressed
@@ -43,7 +44,12 @@ void display() {
 	float viewMatrixf[16];
 	allocateMatrix(viewMatrixf, perspectiveMat);
 	Angel::mat4 modelMat = Angel::identity();
-	modelMat = modelMat * g_nomMat * g_centerMat *g_transMat;
+
+	mat4 revRotate;
+	cout << revRotate << endl;
+	gluInvertMatrix(g_rotate, revRotate);
+	cout << revRotate << endl;
+	modelMat = modelMat * g_nomMat * g_rotate * g_centerMat * revRotate * g_transMat * g_rotate;
 	float modelMatrixf[16];
 	allocateMatrix(modelMatrixf, modelMat);
 
@@ -93,12 +99,20 @@ void motionMouseFunc(int x, int y) {
 		if (g_mouseButton == GLUT_LEFT_BUTTON) {
 			int transX = x - g_prevMousePos[0];
 			int transY = y - g_prevMousePos[1];
-			display();
 			g_transMat *= Angel::Translate(vec4(transX, -transY, 0, 1));
+			display();
 			g_prevMousePos = vec2((double)x, (double)y);
 		}
-	}
 
+	}
+	if (g_mouseButton == GLUT_RIGHT_BUTTON) {
+		int rotX = x - g_prevMousePos[0];
+		int rotY = y - g_prevMousePos[1];
+		g_rotate *= Angel::RotateY(rotX) * Angel::RotateX(-rotY);
+		display();
+		g_prevMousePos = vec2((double)x, (double)y);
+
+	}
 
 }
 void init(int argc, char **argv) {
@@ -145,6 +159,7 @@ void initBuffer(int buffer_size) {
 
 	g_scaleMat = Angel::identity();
 	g_transMat = Angel::identity();
+	g_rotate = Angel::identity();
 }
 
 void enableBuffer(int index, int size) {
