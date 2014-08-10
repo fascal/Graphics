@@ -4,8 +4,7 @@
 
 using namespace std;
 
-int width = 0;
-int height = 0;
+#pragma region declare variable
 
 void display( void );
 void keyboard( unsigned char key, int x, int y );
@@ -17,18 +16,25 @@ vec4* allocRandomColor(int nfaces);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 mat4 getCenteringMatrix(vec4* _points, int _npoints);
 mat4 getScalingMatrix(vec4* _points, int _npoints);
+void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
+void loadVertecies();
 
 GLuint g_program;
 
-
-//GLuint buffer[2];
+int width = 0;
+int height = 0;
 
 GLuint *g_buffers;
-int g_bufferSize;
-int g_allocatedBufferSize;
-mat4 g_scaleMat, g_centerMat;
+int g_bufferSize, g_nfaces, g_allocatedBufferSize;
+mat4 g_nomMat, g_centerMat;
+mat4 g_scaleMat, g_transMat;
+vec2 g_prevMousePos = NULL;
+int g_mouseState, g_mouseButton, g_mouseFlow = 0;
+//mouse flow == 0 when no button pressed
+//mouse flow == 1 when the left button first pressed
+//mouse flow returns to 0 when left button released
+#pragma endregion
 
-int g_nfaces;
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -37,8 +43,7 @@ void display() {
 	float viewMatrixf[16];
 	allocateMatrix(viewMatrixf, perspectiveMat);
 	Angel::mat4 modelMat = Angel::identity();
-	float s = 0.5;
-	modelMat = modelMat * g_scaleMat * g_centerMat;// * Angel::Translate(0.0, 0.0, -100.0f);// * Angel::RotateY(45.0f) * Angel::RotateX(35.0f) * Angel::Scale(s, s, s);
+	modelMat = modelMat * g_nomMat * g_centerMat *g_transMat;
 	float modelMatrixf[16];
 	allocateMatrix(modelMatrixf, modelMat);
 
@@ -52,12 +57,94 @@ void display() {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
 	
-	enableBuffer(0, 1);
-	glDrawArrays(GL_TRIANGLES, 0, g_nfaces);
+	enableBuffer(0, g_nfaces);
+	glDrawArrays(GL_TRIANGLES, 0, g_nfaces * 3);
 
 	glDisable(GL_DEPTH_TEST);
 	glutSwapBuffers();
 
+}
+
+// keyboard handler
+void keyboard( unsigned char key, int x, int y )
+{
+    switch ( key ) {
+    case 033:
+        exit( EXIT_SUCCESS );
+        break;
+    }
+}
+
+void mouseFunc(int button, int state, int x, int y) {
+	g_mouseButton = button;
+	g_mouseState = state;
+	if (state == GLUT_UP) {
+		g_mouseFlow = 0;
+	}
+}
+
+void motionMouseFunc(int x, int y) {
+
+	if (g_mouseFlow == 0) {
+		g_prevMousePos = vec2((double)x, (double)y);
+		g_mouseFlow = 1;
+	}
+	else if (g_mouseState == GLUT_DOWN) {
+		if (g_mouseButton == GLUT_LEFT_BUTTON) {
+			int transX = x - g_prevMousePos[0];
+			int transY = y - g_prevMousePos[1];
+			display();
+			g_transMat *= Angel::Translate(vec4(transX, -transY, 0, 1));
+			g_prevMousePos = vec2((double)x, (double)y);
+		}
+	}
+
+
+}
+void init(int argc, char **argv) {
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitWindowSize(512, 512);
+
+	width = 512;
+	height = 512;
+
+	glutCreateWindow("display");
+
+	glewInit();
+}
+
+int main(int argc, char **argv) {
+	srand(1);
+	init(argc, argv);
+
+	loadVertecies();
+	glClearColor(1, 1, 1, 1);
+
+	glutDisplayFunc(display);
+	glutKeyboardFunc(keyboard);
+	glutMouseFunc(mouseFunc);
+	glutMotionFunc(motionMouseFunc);
+	glutMainLoop();
+
+	return 0;
+}
+
+#pragma region buffers operation
+void initBuffer(int buffer_size) {
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	g_buffers = (GLuint*)malloc(sizeof(GLuint)* buffer_size);
+	g_allocatedBufferSize = buffer_size;
+	g_bufferSize = 0;
+
+	glGenBuffers(buffer_size, g_buffers);
+
+	g_scaleMat = Angel::identity();
+	g_transMat = Angel::identity();
 }
 
 void enableBuffer(int index, int size) {
@@ -70,80 +157,6 @@ void enableBuffer(int index, int size) {
 	glEnableVertexAttribArray(vColor);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 3 * size));
 }
-// keyboard handler
-void keyboard( unsigned char key, int x, int y )
-{
-    switch ( key ) {
-    case 033:
-        exit( EXIT_SUCCESS );
-        break;
-    }
-}
-
-void init(int argc, char **argv) {
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize(512, 512);
-
-	width = 512;
-	height = 512;
-
-	glutCreateWindow("display");
-
-	glewInit();
-
-
-}
-
-void genTestTriangle() {
-	int nfaces = 3;
-	vec4 *vertecies = (vec4*)malloc(sizeof(vec4)* nfaces);
-	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces);
-
-	vertecies[0] = vec4(0, 0, 0, 1);
-	vertecies[1] = vec4(0.5, 0.5, 0, 1);
-	vertecies[2] = vec4(0.5, -0.5, 0, 1);
-
-	colors[0] = vec4(0, 0, 0, 1);
-	colors[1] = vec4(0, 0, 0, 1);
-	colors[2] = vec4(0, 0, 0, 1);
-
-	GLuint *vao;
-	glGenVertexArrays(2, vao);
-	glBindVertexArray(vao[0]);
-
-	g_buffers = (GLuint*)malloc(sizeof(GLuint)* 2);
-	g_allocatedBufferSize = 2;
-	g_bufferSize = 0;
-
-	glGenBuffers(2, g_buffers);
-
-	addToBuffer(vertecies, colors, nfaces);
-
-	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
-	glUseProgram(g_program);
-
-	vec4 *vertecies2 = (vec4*)malloc(sizeof(vec4)* nfaces);
-	vertecies2[0] = vec4(0, 0, 0, 1);
-	vertecies2[1] = vec4(-0.5, -0.5, 0, 1);
-	vertecies2[2] = vec4(-0.5, 0.5, 0, 1);
-	addToBuffer(vertecies2, colors, nfaces);
-
-
-}
-
-void initBuffer(int buffer_size) {
-
-	GLuint *vao;
-	glGenVertexArrays(2, vao);
-	glBindVertexArray(vao[0]);
-
-	g_buffers = (GLuint*)malloc(sizeof(GLuint)* buffer_size);
-	g_allocatedBufferSize = buffer_size;
-	g_bufferSize = 0;
-
-	glGenBuffers(buffer_size, g_buffers);
-}
 
 void loadVertecies() {
 	int nfaces;
@@ -152,6 +165,9 @@ void loadVertecies() {
 	g_nfaces = nfaces;
 	vec4 *colors = allocRandomColor(nfaces);
 
+	//for (int i = 0; i < 10; i++) {
+	//	cout << colors[i] << endl;
+	//}
 	initBuffer(1);
 
 	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
@@ -159,62 +175,41 @@ void loadVertecies() {
 
 	addToBuffer(vertecies, colors, nfaces);
 
-	g_scaleMat = getScalingMatrix(vertecies, nfaces * 3);
+	g_nomMat = getScalingMatrix(vertecies, nfaces * 3);
 	g_centerMat = getCenteringMatrix(vertecies, nfaces * 3);
 
-	//for (int i = 0; i < 10; i++) {
-	//	cout << vertecies[i] << endl;
-	//}
+	/*for (int i = 0; i < nfaces; i++) {
+		cout << vertecies[i][2] << endl;
+	}*/
 }
 
 vec4* allocRandomColor(int nfaces) {
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces * 3);
 	for (int i = 0; i < nfaces * 3; i++) {
-		colors[i] = (float)rand() / RAND_MAX;
+		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
+		//cout << r1 << r2 << r3 << endl;
+		colors[i] = vec4(r1, r2, r3, 1);
 	}
 
 	return colors;
 }
-int main(int argc, char **argv) {
-	srand(1);
-	init(argc, argv);
-	
-	//genTestTriangle();
-	loadVertecies();
-	glClearColor(1, 1, 1, 1);
+#pragma endregion
 
-	glutDisplayFunc(display);
-	glutKeyboardFunc(keyboard);
-	glutMainLoop();
-
-	return 0;
-}
+#pragma region vertecies loading
 
 void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces) {
 	if (g_bufferSize < g_allocatedBufferSize) {
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_buffers[g_bufferSize]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 2, NULL, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 3* 2, NULL, GL_STATIC_DRAW);
 
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces, vertecies);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces, sizeof(vec4)* nfaces, colors);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* nfaces * 3, vertecies);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* nfaces * 3, sizeof(vec4)* nfaces * 3, colors);
 
 		g_bufferSize++;
 	}
 	else {
 		cout << "exceed buffer size limit" << endl;
-	}
-}
-
-void allocateMatrix(GLfloat* array, Angel::mat4 matrix) {
-	int i = 0, j = 0, m;
-	for (m = 0; m < 16; m++) {
-		array[m] = matrix[i][j];
-		i++;
-		if (i == 4) {
-			i = 0;
-			j++;
-		}
 	}
 }
 
@@ -231,7 +226,7 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 	printf("%s\n", pathname);
 	fseek(fp, 80 * sizeof(char), 0);
 	fread(&TriangleNum, sizeof(int), 1, fp);
-	cout << TriangleNum << endl;
+	//cout << TriangleNum << endl;
 	float data;
 	float col[2];
 
@@ -252,7 +247,7 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 		fread(&col, sizeof(char), 2, fp);
 	}
 	fclose(fp);
-	int factor = 70;
+	int factor = 1;
 	vec4* facebuffer = (vec4*)malloc(sizeof(vec4)* TriangleNum * 3);
 	for (int i = 0; i < TriangleNum; i++) {
 		vec4 points[3];
@@ -321,6 +316,9 @@ void find3DBounds(vec4* _points, int _npoints, GLfloat *_minX, GLfloat *_minY, G
 
 }
 
+#pragma endregion
+
+#pragma region matrix calculator
 /**
 points: an array of coordinates of the vertecies
 return an matrix that centers the 3d model
@@ -329,6 +327,18 @@ mat4 getCenteringMatrix(vec4* _points, int _npoints) {
 	GLfloat minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
 	find3DBounds(_points, _npoints, &minX, &minY, &minZ, &maxX, &maxY, &maxZ);
 	return Angel::Translate(-(maxX + minX) / 2, -(maxY + minY) / 2, -(maxZ + minZ) / 2);
+}
+
+void allocateMatrix(GLfloat* array, Angel::mat4 matrix) {
+	int i = 0, j = 0, m;
+	for (m = 0; m < 16; m++) {
+		array[m] = matrix[i][j];
+		i++;
+		if (i == 4) {
+			i = 0;
+			j++;
+		}
+	}
 }
 
 /*
@@ -348,3 +358,170 @@ mat4 getScalingMatrix(vec4* _points, int _npoints) {
 	}
 	return Angel::Scale(1 / maxDiff, 1 / maxDiff, 1 / maxDiff);
 }
+
+mat4 arrayToMat(double* array) {
+	int m;
+	int i = 0, j = 0;
+	mat4 mat;
+	for (m = 0; m < 16; m++) {
+		mat[i][j] = array[m];
+		i++;
+		if (i == 4) {
+			i = 0;
+			j++;
+		}
+	}
+	return mat;
+}
+
+bool gluInvertMatrix(const double m[16], double invOut[16])
+{
+	double inv[16], det;
+	int i;
+
+	inv[0] = m[5] * m[10] * m[15] -
+		m[5] * m[11] * m[14] -
+		m[9] * m[6] * m[15] +
+		m[9] * m[7] * m[14] +
+		m[13] * m[6] * m[11] -
+		m[13] * m[7] * m[10];
+
+	inv[4] = -m[4] * m[10] * m[15] +
+		m[4] * m[11] * m[14] +
+		m[8] * m[6] * m[15] -
+		m[8] * m[7] * m[14] -
+		m[12] * m[6] * m[11] +
+		m[12] * m[7] * m[10];
+
+	inv[8] = m[4] * m[9] * m[15] -
+		m[4] * m[11] * m[13] -
+		m[8] * m[5] * m[15] +
+		m[8] * m[7] * m[13] +
+		m[12] * m[5] * m[11] -
+		m[12] * m[7] * m[9];
+
+	inv[12] = -m[4] * m[9] * m[14] +
+		m[4] * m[10] * m[13] +
+		m[8] * m[5] * m[14] -
+		m[8] * m[6] * m[13] -
+		m[12] * m[5] * m[10] +
+		m[12] * m[6] * m[9];
+
+	inv[1] = -m[1] * m[10] * m[15] +
+		m[1] * m[11] * m[14] +
+		m[9] * m[2] * m[15] -
+		m[9] * m[3] * m[14] -
+		m[13] * m[2] * m[11] +
+		m[13] * m[3] * m[10];
+
+	inv[5] = m[0] * m[10] * m[15] -
+		m[0] * m[11] * m[14] -
+		m[8] * m[2] * m[15] +
+		m[8] * m[3] * m[14] +
+		m[12] * m[2] * m[11] -
+		m[12] * m[3] * m[10];
+
+	inv[9] = -m[0] * m[9] * m[15] +
+		m[0] * m[11] * m[13] +
+		m[8] * m[1] * m[15] -
+		m[8] * m[3] * m[13] -
+		m[12] * m[1] * m[11] +
+		m[12] * m[3] * m[9];
+
+	inv[13] = m[0] * m[9] * m[14] -
+		m[0] * m[10] * m[13] -
+		m[8] * m[1] * m[14] +
+		m[8] * m[2] * m[13] +
+		m[12] * m[1] * m[10] -
+		m[12] * m[2] * m[9];
+
+	inv[2] = m[1] * m[6] * m[15] -
+		m[1] * m[7] * m[14] -
+		m[5] * m[2] * m[15] +
+		m[5] * m[3] * m[14] +
+		m[13] * m[2] * m[7] -
+		m[13] * m[3] * m[6];
+
+	inv[6] = -m[0] * m[6] * m[15] +
+		m[0] * m[7] * m[14] +
+		m[4] * m[2] * m[15] -
+		m[4] * m[3] * m[14] -
+		m[12] * m[2] * m[7] +
+		m[12] * m[3] * m[6];
+
+	inv[10] = m[0] * m[5] * m[15] -
+		m[0] * m[7] * m[13] -
+		m[4] * m[1] * m[15] +
+		m[4] * m[3] * m[13] +
+		m[12] * m[1] * m[7] -
+		m[12] * m[3] * m[5];
+
+	inv[14] = -m[0] * m[5] * m[14] +
+		m[0] * m[6] * m[13] +
+		m[4] * m[1] * m[14] -
+		m[4] * m[2] * m[13] -
+		m[12] * m[1] * m[6] +
+		m[12] * m[2] * m[5];
+
+	inv[3] = -m[1] * m[6] * m[11] +
+		m[1] * m[7] * m[10] +
+		m[5] * m[2] * m[11] -
+		m[5] * m[3] * m[10] -
+		m[9] * m[2] * m[7] +
+		m[9] * m[3] * m[6];
+
+	inv[7] = m[0] * m[6] * m[11] -
+		m[0] * m[7] * m[10] -
+		m[4] * m[2] * m[11] +
+		m[4] * m[3] * m[10] +
+		m[8] * m[2] * m[7] -
+		m[8] * m[3] * m[6];
+
+	inv[11] = -m[0] * m[5] * m[11] +
+		m[0] * m[7] * m[9] +
+		m[4] * m[1] * m[11] -
+		m[4] * m[3] * m[9] -
+		m[8] * m[1] * m[7] +
+		m[8] * m[3] * m[5];
+
+	inv[15] = m[0] * m[5] * m[10] -
+		m[0] * m[6] * m[9] -
+		m[4] * m[1] * m[10] +
+		m[4] * m[2] * m[9] +
+		m[8] * m[1] * m[6] -
+		m[8] * m[2] * m[5];
+
+	det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+
+	if (det == 0)
+		return false;
+
+	det = (double)1.0 / det;
+
+	for (i = 0; i < 16; i++)
+		invOut[i] = inv[i] * det;
+
+	return true;
+}
+
+void gluInvertMatrix(mat4 m, mat4 &inv) {
+
+	double a[16];
+
+	GLfloat *aa = (GLfloat*)malloc(sizeof(GLfloat)* 16);
+	allocateMatrix(aa, m);
+
+	for (int i = 0; i < 16; i++) {
+		a[i] = aa[i];
+	}
+
+	free(aa);
+
+	double invOut[16];
+
+	gluInvertMatrix(a, invOut);
+	inv = arrayToMat(invOut);
+
+}
+
+#pragma endregion
