@@ -20,6 +20,7 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadVertecies();
 void gluInvertMatrix(mat4 m, mat4 &inv);
 vec3 ray_trace(int x, int y, mat4 projection_mat, mat4 model_view_mat);
+void genTestVertecies();
 
 GLuint g_program;
 
@@ -54,7 +55,7 @@ void display() {
 
 	mat4 revRotate;
 	gluInvertMatrix(g_rotate, revRotate);
-	modelMat = modelMat * g_nomMat * g_rotate * g_centerMat * revRotate * g_transMat * g_rotate;
+	modelMat = modelMat * g_nomMat * g_scaleMat * g_rotate * g_centerMat * revRotate * g_transMat * g_rotate;
 	float modelMatrixf[16];
 	allocateMatrix(modelMatrixf, modelMat);
 
@@ -65,7 +66,8 @@ void display() {
 
 	glFlush();
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glEnable(GL_DEPTH_TEST);
 	
 	enableBuffer(0, g_nfaces);
@@ -94,7 +96,7 @@ void keyboard( unsigned char key, int x, int y )
 void mouseFunc(int button, int state, int x, int y) {
 	if (g_r_toggle) {
 		vec3 ray = ray_trace(x, y, g_perspectiveMat, g_mvmat);
-		cout << ray << endl;
+		//cout << ray << endl;
 
 		return;
 	}
@@ -102,6 +104,22 @@ void mouseFunc(int button, int state, int x, int y) {
 	g_mouseState = state;
 	if (state == GLUT_UP) {
 		g_mouseFlow = 0;
+	}
+
+	if (button == 3 || button == 4) {
+		if (state == GLUT_UP) {
+			return;
+		}
+		else {
+			if (button == 3) {
+				g_scaleMat *= Angel::Scale(2, 2, 2);
+			}
+			else {
+				g_scaleMat *= Angel::Scale(0.5, 0.5, 0.5);
+			}
+			display();
+		}
+
 	}
 }
 
@@ -131,6 +149,7 @@ void motionMouseFunc(int x, int y) {
 	}
 
 }
+
 void init(int argc, char **argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
@@ -147,8 +166,8 @@ void init(int argc, char **argv) {
 int main(int argc, char **argv) {
 	srand(1);
 	init(argc, argv);
-
-	loadVertecies();
+	genTestVertecies();
+	//loadVertecies();
 	glClearColor(1, 1, 1, 1);
 
 	glutDisplayFunc(display);
@@ -192,6 +211,11 @@ bool PointInTriangle(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
 	return b1 && b2 && b3;
 	
 }
+
+GLfloat pointDistance(vec4 p1, vec4 p2) {
+	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
+}
+
 vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
 	GLfloat x = (2 * parx) / (GLfloat)width - 1;
 	GLfloat y = 1 - (2 * pary) / (GLfloat)height;
@@ -203,15 +227,18 @@ vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
 	gluInvertMatrix(model_view_mat, inv_view_mat);
 	vec4 ray = inv_view_mat * ray_eye;
 	vec3 ray_wor = vec3(ray[0], ray[1], ray[2]);
+	cout << ray_wor << endl;
 	GLfloat d = sqrt(pow(ray[0], 2) + pow(ray[1], 2) + pow(ray[2], 2));
 	ray_wor /= d;
-
+	cout << ray_wor << endl;
 	for (int i = 0; i < g_nfaces; i++) {
 		vec4 norm = g_norms[i];
 		vec4 point = g_vertecies[i * 3];
 		
 		int distance = -Angel::dot(point, norm);
 		int t = -(dot(vec4(0, 0, 0, 1), norm) + distance) / dot(ray_wor, norm);
+		//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
+		cout << t << endl;
 		if (t <= 0) {
 			continue;
 		}
@@ -221,8 +248,16 @@ vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
 			vec4 p1 = g_vertecies[i * 3 + 0];
 			vec4 p2 = g_vertecies[i * 3 + 1];
 			vec4 p3 = g_vertecies[i * 3 + 2];
+			//g_colors[i] = vec4(1, 0, 0, 1);
+			cout << pt << endl;
 			if (PointInTriangle(pt, p1, p2, p3)) {
 				//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
+				for (int j = 0; j < g_nfaces; j++) {
+					if (pointDistance(pt, g_vertecies[j]) < 3000) {
+						g_colors[j] = vec4(1, 0, 0, 1);
+						cout << g_vertecies[j] << endl;
+					}
+				}
 				g_colors[i] = vec4(1, 0, 0, 1);
 			}
 			
@@ -281,11 +316,37 @@ void loadVertecies() {
 
 }
 
+void genTestVertecies() {
+	int nfaces = 1;
+	vec4 *vertecies = (vec4*)malloc(sizeof(vec4) * 3);
+	vertecies[0] = vec4(0, 0, 0, 1);
+	vertecies[1] = vec4(1, 1, 1, 1);
+	vertecies[2] = vec4(1, -1, 1, 1);
+	g_nfaces = nfaces;
+	vec4 *colors = allocRandomColor(nfaces);
+
+	initBuffer(1);
+
+	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
+	glUseProgram(g_program);
+
+	addToBuffer(vertecies, colors, nfaces);
+
+	g_nomMat = getScalingMatrix(vertecies, nfaces * 3);
+	g_centerMat = getCenteringMatrix(vertecies, nfaces * 3);
+
+	g_norms = (vec4*)malloc(sizeof(vec4));
+	g_norms[0] = vec4(0, 0, 1, 1);
+	g_vertecies = vertecies;
+	g_colors = colors;
+}
+
 vec4* allocRandomColor(int nfaces) {
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces * 3);
 	for (int i = 0; i < nfaces * 3; i++) {
 		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
-		colors[i] = vec4(r1, r2, r3, 1);
+		//colors[i] = vec4(r1, r2, r3, 1);
+		colors[i] = vec4(0, 0, 1, 1);
 	}
 	g_colors = colors;
 	return colors;
