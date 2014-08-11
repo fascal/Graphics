@@ -161,6 +161,37 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+GLfloat sign(vec2 p1, vec2 p2, vec2 p3)
+{
+	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+bool PointInTriangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3)
+{
+	bool b1, b2, b3;
+
+	b1 = sign(pt, v1, v2) < 0.0f;
+	b2 = sign(pt, v2, v3) < 0.0f;
+	b3 = sign(pt, v3, v1) < 0.0f;
+
+	return ((b1 == b2) && (b2 == b3));
+}
+
+bool PointInTriangle(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
+	bool b1, b2, b3;
+	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
+		p2t = vec2(pt.x, pt.y);
+	b1 = PointInTriangle(p2t, p21, p22, p23);
+	vec2 p212 = vec2(p1.x, p1.y), p222 = vec2(p2.x, p2.y), p232 = vec2(p3.x, p3.y),
+		p2t2 = vec2(pt.x, pt.y);
+	b2 = PointInTriangle(p2t2, p212, p222, p232);
+	vec2 p213 = vec2(p1.x, p1.y), p223 = vec2(p2.x, p2.y), p233 = vec2(p3.x, p3.y),
+		p2t3 = vec2(pt.x, pt.y);
+	b3 = PointInTriangle(p2t3, p213, p223, p233);
+
+	return b1 && b2 && b3;
+	
+}
 vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
 	GLfloat x = (2 * parx) / (GLfloat)width - 1;
 	GLfloat y = 1 - (2 * pary) / (GLfloat)height;
@@ -181,17 +212,27 @@ vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
 		
 		int distance = -Angel::dot(point, norm);
 		int t = -(dot(vec4(0, 0, 0, 1), norm) + distance) / dot(ray_wor, norm);
-		if (t == 0) {
+		if (t <= 0) {
 			continue;
 		}
 		else {
-			//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
-			g_colors[i] = vec4(1, 0, 0, 1);
+			
+			vec4 pt = vec4(0, 0, 0, 1) + ray_wor * t;
+			vec4 p1 = g_vertecies[i * 3 + 0];
+			vec4 p2 = g_vertecies[i * 3 + 1];
+			vec4 p3 = g_vertecies[i * 3 + 2];
+			if (PointInTriangle(pt, p1, p2, p3)) {
+				//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
+				g_colors[i] = vec4(1, 0, 0, 1);
+			}
+			
 		}
 	}
-	
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* g_nfaces * 3, sizeof(vec4)* g_nfaces * 3, g_colors);
+	display();
 	return ray_wor;
 }
+
 #pragma region buffers operation
 void initBuffer(int buffer_size) {
 
