@@ -19,6 +19,7 @@ mat4 getScalingMatrix(vec4* _points, int _npoints);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadVertecies();
 void gluInvertMatrix(mat4 m, mat4 &inv);
+vec3 ray_trace(int x, int y, mat4 projection_mat, mat4 model_view_mat);
 
 GLuint g_program;
 
@@ -29,8 +30,13 @@ GLuint *g_buffers;
 int g_bufferSize, g_nfaces, g_allocatedBufferSize;
 mat4 g_nomMat, g_centerMat;
 mat4 g_scaleMat, g_transMat, g_rotate;
+mat4 g_perspectiveMat, g_mvmat;
 vec2 g_prevMousePos = NULL;
 int g_mouseState, g_mouseButton, g_mouseFlow = 0;
+bool g_r_toggle = false;
+
+vec4 *g_vertecies, *g_colors, *g_norms;
+
 //mouse flow == 0 when no button pressed
 //mouse flow == 1 when the left button first pressed
 //mouse flow returns to 0 when left button released
@@ -40,15 +46,14 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	Angel::mat4 perspectiveMat = Angel::Perspective((GLfloat)45.0, (GLfloat)width / (GLfloat)height, (GLfloat)0.1, (GLfloat) 100.0);
-
+	//Angel::mat4 perspectiveMat = Angel::Ortho(-1, 1, -1, 1, -1, 1);
+	//mat4 perspectiveMat = Angel::LookAt(vec4(0, 0, 0, 1), vec4(0, 0, -1, 1), vec4(0, 1, 0, 1));
 	float viewMatrixf[16];
 	allocateMatrix(viewMatrixf, perspectiveMat);
 	Angel::mat4 modelMat = Angel::identity();
 
 	mat4 revRotate;
-	cout << revRotate << endl;
 	gluInvertMatrix(g_rotate, revRotate);
-	cout << revRotate << endl;
 	modelMat = modelMat * g_nomMat * g_rotate * g_centerMat * revRotate * g_transMat * g_rotate;
 	float modelMatrixf[16];
 	allocateMatrix(modelMatrixf, modelMat);
@@ -69,6 +74,8 @@ void display() {
 	glDisable(GL_DEPTH_TEST);
 	glutSwapBuffers();
 
+	g_perspectiveMat = perspectiveMat;
+	g_mvmat = modelMat;
 }
 
 // keyboard handler
@@ -78,10 +85,19 @@ void keyboard( unsigned char key, int x, int y )
     case 033:
         exit( EXIT_SUCCESS );
         break;
+	case 'r':
+		g_r_toggle = !(g_r_toggle);
+		break;
     }
 }
 
 void mouseFunc(int button, int state, int x, int y) {
+	if (g_r_toggle) {
+		vec3 ray = ray_trace(x, y, g_perspectiveMat, g_mvmat);
+		cout << ray << endl;
+
+		return;
+	}
 	g_mouseButton = button;
 	g_mouseState = state;
 	if (state == GLUT_UP) {
@@ -90,25 +106,27 @@ void mouseFunc(int button, int state, int x, int y) {
 }
 
 void motionMouseFunc(int x, int y) {
-
+	if (g_r_toggle) {
+		return;
+	}
 	if (g_mouseFlow == 0) {
-		g_prevMousePos = vec2((double)x, (double)y);
+		g_prevMousePos = vec2((GLfloat)x, (GLfloat)y);
 		g_mouseFlow = 1;
 	}
 	else if (g_mouseState == GLUT_DOWN) {
 		if (g_mouseButton == GLUT_LEFT_BUTTON) {
-			int transX = x - g_prevMousePos[0];
-			int transY = y - g_prevMousePos[1];
+			GLfloat transX = x - g_prevMousePos[0];
+			GLfloat transY = y - g_prevMousePos[1];
 			g_transMat *= Angel::Translate(vec4(transX, -transY, 0, 1));
-			g_prevMousePos = vec2((double)x, (double)y);
+			g_prevMousePos = vec2((GLfloat)x, (GLfloat)y);
 		}
 
 	}
 	if (g_mouseButton == GLUT_RIGHT_BUTTON) {
-		int rotX = x - g_prevMousePos[0];
-		int rotY = y - g_prevMousePos[1];
+		GLfloat rotX = x - g_prevMousePos[0];
+		GLfloat rotY = y - g_prevMousePos[1];
 		g_rotate *= Angel::RotateY(rotX) * Angel::RotateX(-rotY);
-		g_prevMousePos = vec2((double)x, (double)y);
+		g_prevMousePos = vec2((GLfloat)x, (GLfloat)y);
 
 	}
 
@@ -143,6 +161,37 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
+	GLfloat x = (2 * parx) / (GLfloat)width - 1;
+	GLfloat y = 1 - (2 * pary) / (GLfloat)height;
+	vec4 ray_clip = vec4(x, y, -1, 1);
+	mat4 inv_proj_mat;
+	gluInvertMatrix(projection_mat, inv_proj_mat);
+	vec4 ray_eye = inv_proj_mat * ray_clip;
+	mat4 inv_view_mat;
+	gluInvertMatrix(model_view_mat, inv_view_mat);
+	vec4 ray = inv_view_mat * ray_eye;
+	vec3 ray_wor = vec3(ray[0], ray[1], ray[2]);
+	GLfloat d = sqrt(pow(ray[0], 2) + pow(ray[1], 2) + pow(ray[2], 2));
+	ray_wor /= d;
+
+	for (int i = 0; i < g_nfaces; i++) {
+		vec4 norm = g_norms[i];
+		vec4 point = g_vertecies[i * 3];
+		
+		int distance = -Angel::dot(point, norm);
+		int t = -(dot(vec4(0, 0, 0, 1), norm) + distance) / dot(ray_wor, norm);
+		if (t == 0) {
+			continue;
+		}
+		else {
+			//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
+			g_colors[i] = vec4(1, 0, 0, 1);
+		}
+	}
+	
+	return ray_wor;
+}
 #pragma region buffers operation
 void initBuffer(int buffer_size) {
 
@@ -179,9 +228,6 @@ void loadVertecies() {
 	g_nfaces = nfaces;
 	vec4 *colors = allocRandomColor(nfaces);
 
-	//for (int i = 0; i < 10; i++) {
-	//	cout << colors[i] << endl;
-	//}
 	initBuffer(1);
 
 	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
@@ -192,19 +238,15 @@ void loadVertecies() {
 	g_nomMat = getScalingMatrix(vertecies, nfaces * 3);
 	g_centerMat = getCenteringMatrix(vertecies, nfaces * 3);
 
-	/*for (int i = 0; i < nfaces; i++) {
-		cout << vertecies[i][2] << endl;
-	}*/
 }
 
 vec4* allocRandomColor(int nfaces) {
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces * 3);
 	for (int i = 0; i < nfaces * 3; i++) {
 		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
-		//cout << r1 << r2 << r3 << endl;
 		colors[i] = vec4(r1, r2, r3, 1);
 	}
-
+	g_colors = colors;
 	return colors;
 }
 #pragma endregion
@@ -240,7 +282,6 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 	printf("%s\n", pathname);
 	fseek(fp, 80 * sizeof(char), 0);
 	fread(&TriangleNum, sizeof(int), 1, fp);
-	//cout << TriangleNum << endl;
 	float data;
 	float col[2];
 
@@ -263,8 +304,10 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 	fclose(fp);
 	int factor = 1;
 	vec4* facebuffer = (vec4*)malloc(sizeof(vec4)* TriangleNum * 3);
+	vec4* norms = (vec4*)malloc(sizeof(vec4)* TriangleNum);
 	for (int i = 0; i < TriangleNum; i++) {
 		vec4 points[3];
+		norms[i] = vec4(Triangle[0][i], Triangle[1][i], Triangle[1][i], 1);
 		for (int j = 0; j < 3; j++) {
 			points[j] = vec4(Triangle[j * 3 + 3][i] / factor, Triangle[j * 3 + 4][i] / factor, Triangle[j * 3 + 5][i] / factor, 1);
 		}
@@ -275,6 +318,9 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 
 	*_facebuffer = facebuffer;
 	*_nfacebuffer = TriangleNum;
+
+	g_vertecies = facebuffer;
+	g_norms = norms;
 }
 
 void findBounds(GLfloat* _array, int _size, GLfloat* _min, GLfloat* _max) {
@@ -373,7 +419,7 @@ mat4 getScalingMatrix(vec4* _points, int _npoints) {
 	return Angel::Scale(1 / maxDiff, 1 / maxDiff, 1 / maxDiff);
 }
 
-mat4 arrayToMat(double* array) {
+mat4 arrayToMat(GLfloat* array) {
 	int m;
 	int i = 0, j = 0;
 	mat4 mat;
@@ -388,9 +434,9 @@ mat4 arrayToMat(double* array) {
 	return mat;
 }
 
-bool gluInvertMatrix(const double m[16], double invOut[16])
+bool gluInvertMatrix(const GLfloat m[16], GLfloat invOut[16])
 {
-	double inv[16], det;
+	GLfloat inv[16], det;
 	int i;
 
 	inv[0] = m[5] * m[10] * m[15] -
@@ -510,7 +556,7 @@ bool gluInvertMatrix(const double m[16], double invOut[16])
 	if (det == 0)
 		return false;
 
-	det = (double)1.0 / det;
+	det = (GLfloat)1.0 / det;
 
 	for (i = 0; i < 16; i++)
 		invOut[i] = inv[i] * det;
@@ -520,7 +566,7 @@ bool gluInvertMatrix(const double m[16], double invOut[16])
 
 void gluInvertMatrix(mat4 m, mat4 &inv) {
 
-	double a[16];
+	GLfloat a[16];
 
 	GLfloat *aa = (GLfloat*)malloc(sizeof(GLfloat)* 16);
 	allocateMatrix(aa, m);
@@ -531,11 +577,21 @@ void gluInvertMatrix(mat4 m, mat4 &inv) {
 
 	free(aa);
 
-	double invOut[16];
+	GLfloat invOut[16];
 
 	gluInvertMatrix(a, invOut);
 	inv = arrayToMat(invOut);
 
+}
+
+mat4 negativeMatrix(mat4 _matrix) {
+	mat4 mat = _matrix;
+	int i;
+	for (i = 0; i < 3; i++) {
+		mat[i][3] = -_matrix[i][3];
+	}
+
+	return mat;
 }
 
 #pragma endregion
