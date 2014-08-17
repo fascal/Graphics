@@ -1,6 +1,8 @@
 // Draws colored cube  
 
 #include "Angel.h"
+#include "matrix_calculator.h"
+#include "ray_trace.h"
 
 using namespace std;
 
@@ -11,15 +13,10 @@ void keyboard( unsigned char key, int x, int y );
 void init(int argc, char **argv);
 void addToBuffer(vec4 *vertecies, vec4 *colors, int nfaces);
 void enableBuffer(int index, int size);
-void allocateMatrix(GLfloat* array, Angel::mat4 matrix);
 vec4* allocRandomColor(int nfaces);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
-mat4 getCenteringMatrix(vec4* _points, int _npoints);
-mat4 getScalingMatrix(vec4* _points, int _npoints);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadVertecies();
-void gluInvertMatrix(mat4 m, mat4 &inv);
-vec3 ray_trace(int x, int y, mat4 projection_mat, mat4 model_view_mat);
 void genTestVertecies();
 
 GLuint g_program;
@@ -37,18 +34,49 @@ int g_mouseState, g_mouseButton, g_mouseFlow = 0;
 bool g_r_toggle = false;
 
 vec4 *g_vertecies, *g_colors, *g_norms;
-
+vec4 g_v1, g_v2;
+bool g_is_line_ready;// = false;
 //mouse flow == 0 when no button pressed
 //mouse flow == 1 when the left button first pressed
 //mouse flow returns to 0 when left button released
 #pragma endregion
+void drawLine(vec4 v1, vec4 v2) {
+	GLuint buffer;
+	glGenBuffers(1, &buffer);
 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)* 2 * 2, NULL, GL_STATIC_DRAW);
+	vec4 *vertecies = (vec4*)malloc(sizeof(vec4)* 2);
+	vertecies[0] = v1;
+	vertecies[1] = v2;
+	vec4 *colors = (vec4*)malloc(sizeof(vec4)* 2);
+	colors[0] = vec4(1, 0, 0, 1);
+	colors[1] = vec4(0, 0, 0, 1);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* 2, vertecies);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* 2, sizeof(vec4)* 2, colors);
+	GLuint vPosition = glGetAttribLocation(g_program, "vPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+	GLuint vColor = glGetAttribLocation(g_program, "vColor");
+	glEnableVertexAttribArray(vColor);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(vec4)* 2));
+
+	glDrawArrays(GL_LINE_STRIP, 0, 2);
+
+	/*glDisable(GL_DEPTH_TEST);
+	glutSwapBuffers();
+
+	g_perspectiveMat = perspectiveMat;
+	g_mvmat = modelMat;*/
+}
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Angel::mat4 perspectiveMat = Angel::Perspective((GLfloat)45.0, (GLfloat)width / (GLfloat)height, (GLfloat)0.1, (GLfloat) 100.0);
+	//Angel::mat4 perspectiveMat = Angel::Perspective((GLfloat)45.0, (GLfloat)width / (GLfloat)height, (GLfloat)0.1, (GLfloat) 100.0);
 	//Angel::mat4 perspectiveMat = Angel::Ortho(-1, 1, -1, 1, -1, 1);
 	//mat4 perspectiveMat = Angel::LookAt(vec4(0, 0, 0, 1), vec4(0, 0, -1, 1), vec4(0, 1, 0, 1));
+	Angel::mat4 perspectiveMat = Angel::Ortho(-1, 1, -1, 1, 1, -1);
 	float viewMatrixf[16];
 	allocateMatrix(viewMatrixf, perspectiveMat);
 	Angel::mat4 modelMat = Angel::identity();
@@ -66,21 +94,26 @@ void display() {
 
 	glFlush();
 
+
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glEnable(GL_DEPTH_TEST);
 	
 	enableBuffer(0, g_nfaces);
 	glDrawArrays(GL_TRIANGLES, 0, g_nfaces * 3);
-
+	if (g_is_line_ready) {
+		drawLine(g_v1, g_v2);
+	}
 	glDisable(GL_DEPTH_TEST);
+
 	glutSwapBuffers();
 
 	g_perspectiveMat = perspectiveMat;
 	g_mvmat = modelMat;
 }
 
-// keyboard handler
+
+#pragma region user control
 void keyboard( unsigned char key, int x, int y )
 {
     switch ( key ) {
@@ -95,8 +128,17 @@ void keyboard( unsigned char key, int x, int y )
 
 void mouseFunc(int button, int state, int x, int y) {
 	if (g_r_toggle) {
-		vec3 ray = ray_trace(x, y, g_perspectiveMat, g_mvmat);
-		//cout << ray << endl;
+
+		cout << "----------------------" << endl;
+		vec3 ray = calculate_ray(g_perspectiveMat, g_mvmat);
+		vec4 eye_pos = calculate_eye_position(g_perspectiveMat, g_mvmat, x, y, width, height);
+		vec3 intersect = ray_intersection(g_vertecies, g_norms, 1, ray, eye_pos);
+		cout << "intersect " << intersect << endl;
+		int t = 900 / 2;
+		vec4 v2 = eye_pos + ray * t;
+		g_v1 = eye_pos;
+		g_v2 = v2;
+		g_is_line_ready = true;
 
 		return;
 	}
@@ -150,6 +192,8 @@ void motionMouseFunc(int x, int y) {
 
 }
 
+#pragma endregion
+
 void init(int argc, char **argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
@@ -161,13 +205,16 @@ void init(int argc, char **argv) {
 	glutCreateWindow("display");
 
 	glewInit();
+
+	g_is_line_ready = false;
+	g_transMat = Angel::Translate(0, 0, -1);
 }
 
 int main(int argc, char **argv) {
 	srand(1);
 	init(argc, argv);
-	genTestVertecies();
-	//loadVertecies();
+	//genTestVertecies();
+	loadVertecies();
 	glClearColor(1, 1, 1, 1);
 
 	glutDisplayFunc(display);
@@ -180,6 +227,7 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+#pragma region ray tracing
 GLfloat sign(vec2 p1, vec2 p2, vec2 p3)
 {
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -216,57 +264,7 @@ GLfloat pointDistance(vec4 p1, vec4 p2) {
 	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
 }
 
-vec3 ray_trace(int parx, int pary, mat4 projection_mat, mat4 model_view_mat) {
-	GLfloat x = (2 * parx) / (GLfloat)width - 1;
-	GLfloat y = 1 - (2 * pary) / (GLfloat)height;
-	vec4 ray_clip = vec4(x, y, -1, 1);
-	mat4 inv_proj_mat;
-	gluInvertMatrix(projection_mat, inv_proj_mat);
-	vec4 ray_eye = inv_proj_mat * ray_clip;
-	mat4 inv_view_mat;
-	gluInvertMatrix(model_view_mat, inv_view_mat);
-	vec4 ray = inv_view_mat * ray_eye;
-	vec3 ray_wor = vec3(ray[0], ray[1], ray[2]);
-	cout << ray_wor << endl;
-	GLfloat d = sqrt(pow(ray[0], 2) + pow(ray[1], 2) + pow(ray[2], 2));
-	ray_wor /= d;
-	cout << ray_wor << endl;
-	for (int i = 0; i < g_nfaces; i++) {
-		vec4 norm = g_norms[i];
-		vec4 point = g_vertecies[i * 3];
-		
-		int distance = -Angel::dot(point, norm);
-		int t = -(dot(vec4(0, 0, 0, 1), norm) + distance) / dot(ray_wor, norm);
-		//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
-		cout << t << endl;
-		if (t <= 0) {
-			continue;
-		}
-		else {
-			
-			vec4 pt = vec4(0, 0, 0, 1) + ray_wor * t;
-			vec4 p1 = g_vertecies[i * 3 + 0];
-			vec4 p2 = g_vertecies[i * 3 + 1];
-			vec4 p3 = g_vertecies[i * 3 + 2];
-			//g_colors[i] = vec4(1, 0, 0, 1);
-			cout << pt << endl;
-			if (PointInTriangle(pt, p1, p2, p3)) {
-				//cout << vec4(0, 0, 0, 1) + ray_wor * t << endl;
-				for (int j = 0; j < g_nfaces; j++) {
-					if (pointDistance(pt, g_vertecies[j]) < 3000) {
-						g_colors[j] = vec4(1, 0, 0, 1);
-						cout << g_vertecies[j] << endl;
-					}
-				}
-				g_colors[i] = vec4(1, 0, 0, 1);
-			}
-			
-		}
-	}
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* g_nfaces * 3, sizeof(vec4)* g_nfaces * 3, g_colors);
-	display();
-	return ray_wor;
-}
+#pragma endregion
 
 #pragma region buffers operation
 void initBuffer(int buffer_size) {
@@ -325,7 +323,7 @@ void genTestVertecies() {
 	g_nfaces = nfaces;
 	vec4 *colors = allocRandomColor(nfaces);
 
-	initBuffer(1);
+	initBuffer(2);
 
 	g_program = InitShader("vshader1.glsl", "fshader1.glsl");
 	glUseProgram(g_program);
@@ -345,8 +343,10 @@ vec4* allocRandomColor(int nfaces) {
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces * 3);
 	for (int i = 0; i < nfaces * 3; i++) {
 		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
-		//colors[i] = vec4(r1, r2, r3, 1);
-		colors[i] = vec4(0, 0, 1, 1);
+		float z = (i / (float)nfaces * 3) * 2 - 1.5;
+		//colors[i] = vec4(z, z, z, 1);
+		colors[i] = vec4(r1, r2, r3, 1);
+		//colors[i] = vec4(0, 0, 1, 1);
 	}
 	g_colors = colors;
 	return colors;
@@ -423,277 +423,6 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 
 	g_vertecies = facebuffer;
 	g_norms = norms;
-}
-
-void findBounds(GLfloat* _array, int _size, GLfloat* _min, GLfloat* _max) {
-	int i;
-	GLfloat min = 0, max = 0;
-	for (i = 0; i < _size; i++) {
-		if (i == 0) {
-			min = _array[i];
-			max = _array[i];
-		}
-		else {
-			if (_array[i] < min) {
-				min = _array[i];
-			}
-			else if (_array[i] > max) {
-				max = _array[i];
-			}
-		}
-	}
-
-	*_min = min;
-	*_max = max;
-}
-
-/*
-find bounds for all dimension for given coordinate array
-*/
-void find3DBounds(vec4* _points, int _npoints, GLfloat *_minX, GLfloat *_minY, GLfloat *_minZ, GLfloat *_maxX, GLfloat *_maxY, GLfloat *_maxZ) {
-	GLfloat *coordX, *coordY, *coordZ;
-	coordX = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
-	coordY = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
-	coordZ = (GLfloat*)malloc(sizeof(GLfloat)* _npoints);
-
-	int i;
-	for (i = 0; i < _npoints; i++) {
-		coordX[i] = _points[i].x;
-		coordY[i] = _points[i].y;
-		coordZ[i] = _points[i].z;
-	}
-
-	GLfloat minX, minY, minZ, maxX, maxY, maxZ;
-
-	findBounds(coordX, _npoints, &minX, &maxX);
-	findBounds(coordY, _npoints, &minY, &maxY);
-	findBounds(coordZ, _npoints, &minZ, &maxZ);
-
-	*_minX = minX;
-	*_minY = minY;
-	*_minZ = minZ;
-	*_maxX = maxX;
-	*_maxY = maxY;
-	*_maxZ = maxZ;
-
-}
-
-#pragma endregion
-
-#pragma region matrix calculator
-/**
-points: an array of coordinates of the vertecies
-return an matrix that centers the 3d model
-*/
-mat4 getCenteringMatrix(vec4* _points, int _npoints) {
-	GLfloat minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
-	find3DBounds(_points, _npoints, &minX, &minY, &minZ, &maxX, &maxY, &maxZ);
-	return Angel::Translate(-(maxX + minX) / 2, -(maxY + minY) / 2, -(maxZ + minZ) / 2);
-}
-
-void allocateMatrix(GLfloat* array, Angel::mat4 matrix) {
-	int i = 0, j = 0, m;
-	for (m = 0; m < 16; m++) {
-		array[m] = matrix[i][j];
-		i++;
-		if (i == 4) {
-			i = 0;
-			j++;
-		}
-	}
-}
-
-/*
-points: an array of coordiante of the vertecies
-return an matrix that scale the 3d model within [-1, 1] on each dimension
-*/
-mat4 getScalingMatrix(vec4* _points, int _npoints) {
-	GLfloat minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
-	find3DBounds(_points, _npoints, &minX, &minY, &minZ, &maxX, &maxY, &maxZ);
-	GLfloat maxDiff = maxX - minX;
-	if (maxY - minY > maxDiff) {
-		maxDiff = maxY - minY;
-	}
-
-	if (maxZ - minZ > maxDiff) {
-		maxDiff = maxZ - minZ;
-	}
-	return Angel::Scale(1 / maxDiff, 1 / maxDiff, 1 / maxDiff);
-}
-
-mat4 arrayToMat(GLfloat* array) {
-	int m;
-	int i = 0, j = 0;
-	mat4 mat;
-	for (m = 0; m < 16; m++) {
-		mat[i][j] = array[m];
-		i++;
-		if (i == 4) {
-			i = 0;
-			j++;
-		}
-	}
-	return mat;
-}
-
-bool gluInvertMatrix(const GLfloat m[16], GLfloat invOut[16])
-{
-	GLfloat inv[16], det;
-	int i;
-
-	inv[0] = m[5] * m[10] * m[15] -
-		m[5] * m[11] * m[14] -
-		m[9] * m[6] * m[15] +
-		m[9] * m[7] * m[14] +
-		m[13] * m[6] * m[11] -
-		m[13] * m[7] * m[10];
-
-	inv[4] = -m[4] * m[10] * m[15] +
-		m[4] * m[11] * m[14] +
-		m[8] * m[6] * m[15] -
-		m[8] * m[7] * m[14] -
-		m[12] * m[6] * m[11] +
-		m[12] * m[7] * m[10];
-
-	inv[8] = m[4] * m[9] * m[15] -
-		m[4] * m[11] * m[13] -
-		m[8] * m[5] * m[15] +
-		m[8] * m[7] * m[13] +
-		m[12] * m[5] * m[11] -
-		m[12] * m[7] * m[9];
-
-	inv[12] = -m[4] * m[9] * m[14] +
-		m[4] * m[10] * m[13] +
-		m[8] * m[5] * m[14] -
-		m[8] * m[6] * m[13] -
-		m[12] * m[5] * m[10] +
-		m[12] * m[6] * m[9];
-
-	inv[1] = -m[1] * m[10] * m[15] +
-		m[1] * m[11] * m[14] +
-		m[9] * m[2] * m[15] -
-		m[9] * m[3] * m[14] -
-		m[13] * m[2] * m[11] +
-		m[13] * m[3] * m[10];
-
-	inv[5] = m[0] * m[10] * m[15] -
-		m[0] * m[11] * m[14] -
-		m[8] * m[2] * m[15] +
-		m[8] * m[3] * m[14] +
-		m[12] * m[2] * m[11] -
-		m[12] * m[3] * m[10];
-
-	inv[9] = -m[0] * m[9] * m[15] +
-		m[0] * m[11] * m[13] +
-		m[8] * m[1] * m[15] -
-		m[8] * m[3] * m[13] -
-		m[12] * m[1] * m[11] +
-		m[12] * m[3] * m[9];
-
-	inv[13] = m[0] * m[9] * m[14] -
-		m[0] * m[10] * m[13] -
-		m[8] * m[1] * m[14] +
-		m[8] * m[2] * m[13] +
-		m[12] * m[1] * m[10] -
-		m[12] * m[2] * m[9];
-
-	inv[2] = m[1] * m[6] * m[15] -
-		m[1] * m[7] * m[14] -
-		m[5] * m[2] * m[15] +
-		m[5] * m[3] * m[14] +
-		m[13] * m[2] * m[7] -
-		m[13] * m[3] * m[6];
-
-	inv[6] = -m[0] * m[6] * m[15] +
-		m[0] * m[7] * m[14] +
-		m[4] * m[2] * m[15] -
-		m[4] * m[3] * m[14] -
-		m[12] * m[2] * m[7] +
-		m[12] * m[3] * m[6];
-
-	inv[10] = m[0] * m[5] * m[15] -
-		m[0] * m[7] * m[13] -
-		m[4] * m[1] * m[15] +
-		m[4] * m[3] * m[13] +
-		m[12] * m[1] * m[7] -
-		m[12] * m[3] * m[5];
-
-	inv[14] = -m[0] * m[5] * m[14] +
-		m[0] * m[6] * m[13] +
-		m[4] * m[1] * m[14] -
-		m[4] * m[2] * m[13] -
-		m[12] * m[1] * m[6] +
-		m[12] * m[2] * m[5];
-
-	inv[3] = -m[1] * m[6] * m[11] +
-		m[1] * m[7] * m[10] +
-		m[5] * m[2] * m[11] -
-		m[5] * m[3] * m[10] -
-		m[9] * m[2] * m[7] +
-		m[9] * m[3] * m[6];
-
-	inv[7] = m[0] * m[6] * m[11] -
-		m[0] * m[7] * m[10] -
-		m[4] * m[2] * m[11] +
-		m[4] * m[3] * m[10] +
-		m[8] * m[2] * m[7] -
-		m[8] * m[3] * m[6];
-
-	inv[11] = -m[0] * m[5] * m[11] +
-		m[0] * m[7] * m[9] +
-		m[4] * m[1] * m[11] -
-		m[4] * m[3] * m[9] -
-		m[8] * m[1] * m[7] +
-		m[8] * m[3] * m[5];
-
-	inv[15] = m[0] * m[5] * m[10] -
-		m[0] * m[6] * m[9] -
-		m[4] * m[1] * m[10] +
-		m[4] * m[2] * m[9] +
-		m[8] * m[1] * m[6] -
-		m[8] * m[2] * m[5];
-
-	det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
-
-	if (det == 0)
-		return false;
-
-	det = (GLfloat)1.0 / det;
-
-	for (i = 0; i < 16; i++)
-		invOut[i] = inv[i] * det;
-
-	return true;
-}
-
-void gluInvertMatrix(mat4 m, mat4 &inv) {
-
-	GLfloat a[16];
-
-	GLfloat *aa = (GLfloat*)malloc(sizeof(GLfloat)* 16);
-	allocateMatrix(aa, m);
-
-	for (int i = 0; i < 16; i++) {
-		a[i] = aa[i];
-	}
-
-	free(aa);
-
-	GLfloat invOut[16];
-
-	gluInvertMatrix(a, invOut);
-	inv = arrayToMat(invOut);
-
-}
-
-mat4 negativeMatrix(mat4 _matrix) {
-	mat4 mat = _matrix;
-	int i;
-	for (i = 0; i < 3; i++) {
-		mat[i][3] = -_matrix[i][3];
-	}
-
-	return mat;
 }
 
 #pragma endregion
