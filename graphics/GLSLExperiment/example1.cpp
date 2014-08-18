@@ -135,7 +135,6 @@ void keyboard( unsigned char key, int x, int y )
 		g_transMat *= Angel::Translate(0, 0, -1);
 		break;
     }
-	cout << "g_transMat: " << g_transMat << endl;
 }
 
 void mouseFunc(int button, int state, int x, int y) {
@@ -153,6 +152,7 @@ void mouseFunc(int button, int state, int x, int y) {
 		g_v2 = v1 + ray * 30;
 		cout << g_v1 << g_v2 << endl;
 		g_is_line_ready = true;
+		ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
 		return;
 	}
 	g_mouseButton = button;
@@ -220,7 +220,7 @@ void init(int argc, char **argv) {
 	glewInit();
 
 	g_is_line_ready = false;
-	g_transMat = Angel::Translate(0, 0, -1);
+	g_transMat = Angel::Translate(0, 0, -2);
 }
 
 int main(int argc, char **argv) {

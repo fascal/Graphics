@@ -1,5 +1,6 @@
 #include "ray_trace.h"
 
+using namespace std;
 vec4 calculate_ray(mat4 perspective_mat, mat4 model_mat) {
 
 	//vec4 ray_clip = vec4(0, 0, -1, 1);
@@ -68,15 +69,16 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 	bool is_initial_state = true;
 	vec3 closest_intersect = NULL;
 	GLfloat t_minimal = 0;
+	vec3 eye_pos_v3;
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
 		vec3 a = vec3(triangle_vertecies[i].x, triangle_vertecies[i].y,
 			triangle_vertecies[i].z);
 		GLfloat distance = -Angel::dot(a, norm);
-		vec3 eye_pos_v3 = vec3(eye_pos.x, eye_pos.y, eye_pos.z);
+		eye_pos_v3 = vec3(eye_pos.x, eye_pos.y, eye_pos.z);
 		GLfloat t = -((dot(eye_pos_v3, norm) + distance)
 			/ dot(ray_wor, norm));
-		cout << "t = " << t << endl;
+		//cout << "t = " << t << endl;
 		vec3 intersect_point = eye_pos_v3 + ray_wor * t;
 
 		if (t <= 0) {
@@ -93,6 +95,7 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 		}
 	}
 	cout << "t = " << t_minimal << endl;
+	cout << "intersect point:" << (eye_pos_v3 + ray_wor * t_minimal) << endl;;
 	return closest_intersect;
 }
 
