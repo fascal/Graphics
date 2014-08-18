@@ -1,19 +1,42 @@
 #include "ray_trace.h"
 
-vec3 calculate_ray(mat4 perspective_mat, mat4 model_mat) {
+vec4 calculate_ray(mat4 perspective_mat, mat4 model_mat) {
 
-	vec4 ray_clip = vec4(0, 0, -1, 1);
-	mat4 inv_proj_mat;
-	gluInvertMatrix(perspective_mat, inv_proj_mat);
-	vec4 ray_eye = inv_proj_mat * ray_clip;
-	mat4 inv_view_mat;
-	gluInvertMatrix(model_mat, inv_view_mat);
-	vec4 ray = inv_view_mat * ray_eye;
-	vec3 ray_wor = vec3(ray.x, ray.y, ray.z);
-	cout << "ray vector " << ray_wor << endl;
+	//vec4 ray_clip = vec4(0, 0, -1, 1);
+	//mat4 inv_proj_mat;
+	//gluInvertMatrix(perspective_mat, inv_proj_mat);
+	//vec4 ray_eye = inv_proj_mat * ray_clip;
+	//mat4 inv_view_mat;
+	//gluInvertMatrix(model_mat, inv_view_mat);
+	//vec4 ray = inv_view_mat * ray_eye;
+	//vec3 ray_wor = vec3(ray.x, ray.y, ray.z);
+	//cout << "ray vector " << ray_wor << endl;
+	//GLfloat d = sqrt(pow(ray.x, 2) + pow(ray.y, 2) + pow(ray.z, 2));
+	//ray_wor /= d;
+	//return ray_wor;
+
+	vec4 ray = vec4(0, 0, -1, 1);
+	mat4 inv_mat;
+	gluInvertMatrix(perspective_mat * model_mat, inv_mat);
+	cout << "pespective mat:" << endl;
+	cout << perspective_mat << endl;
+	cout << "model mat:" << endl;
+	cout << model_mat << endl;
+	cout << "product:" << endl;
+	cout << perspective_mat * model_mat << endl;
+	cout << "inverse prodcut:" << endl;
+	cout << inv_mat << endl;
+	cout << "init ray:" << endl;
+	cout << ray << endl;
+	
+	
+
+	ray = inv_mat * ray;
+	cout << "raw ray vector: " << ray << endl;
 	GLfloat d = sqrt(pow(ray.x, 2) + pow(ray.y, 2) + pow(ray.z, 2));
-	ray_wor /= d;
-	return ray_wor;
+	ray /= d;
+	cout << "normalized ray vector: " << ray << endl;
+	return vec3(ray.x, ray.y, ray.z);
 }
 
 vec4 calculate_eye_position(mat4 perspective_mat, mat4 model_mat, int x, int y, int width, int height) {
@@ -21,13 +44,9 @@ vec4 calculate_eye_position(mat4 perspective_mat, mat4 model_mat, int x, int y, 
 	GLfloat yy = 1 - (2.0f * y) / height;
 	vec4 eye_pos = vec4(xx, yy, 0, 1);
 	
-	mat4 inv_proj_mat;
-	gluInvertMatrix(perspective_mat, inv_proj_mat);
-	eye_pos = inv_proj_mat * eye_pos;
-	mat4 inv_view_mat;
-	gluInvertMatrix(model_mat, inv_view_mat);
-	eye_pos = inv_view_mat * eye_pos;
-	cout << "eye position " << eye_pos << endl;
+	mat4 inv_mat;
+	gluInvertMatrix(perspective_mat * model_mat, inv_mat);
+	eye_pos = inv_mat * eye_pos;
 	return eye_pos;
 }
 
