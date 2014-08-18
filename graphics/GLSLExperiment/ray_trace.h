@@ -8,4 +8,5 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 vec4 calculate_ray(mat4 perspective_mat, mat4 model_mat);
 vec4 calculate_eye_position(mat4 perspective_mat, mat4 model_mat, int x, int y,
 	int width, int height);
+vec4 unproject_vertex(mat4 mat, vec4 vertex);
 #endif

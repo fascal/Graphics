@@ -50,6 +50,12 @@ vec4 calculate_eye_position(mat4 perspective_mat, mat4 model_mat, int x, int y, 
 	return eye_pos;
 }
 
+vec4 unproject_vertex(mat4 mat, vec4 vertex) {
+	mat4 inv_mat;
+	gluInvertMatrix(mat, inv_mat);
+	return inv_mat * vertex;
+}
+
 /*
 calculate intersection with casting ray and traingle meshes
 cosume an array of vertecies, array of normal vectors,

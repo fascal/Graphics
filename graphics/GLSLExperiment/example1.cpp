@@ -115,7 +115,7 @@ void display() {
 
 #pragma region user control
 void keyboard( unsigned char key, int x, int y )
-{
+{ 
     switch ( key ) {
     case 033:
         exit( EXIT_SUCCESS );
@@ -140,25 +140,18 @@ void keyboard( unsigned char key, int x, int y )
 
 void mouseFunc(int button, int state, int x, int y) {
 	if (g_r_toggle) {
-
-		//cout << "----------------------" << endl;
-		//vec3 ray = calculate_ray(g_perspectiveMat, g_mvmat);
-		//vec4 eye_pos = calculate_eye_position(g_perspectiveMat, g_mvmat, x, y, width, height);
-		//vec3 intersect = ray_intersection(g_vertecies, g_norms, 1, ray, eye_pos);
-		//cout << "intersect " << intersect << endl;
-		//int t = 900 / 2;
-		//vec4 v2 = eye_pos + ray * t;
-		//g_v1 = eye_pos;
-		//g_v2 = v2;
-		//g_is_line_ready = true;
-
-
-		vec4 eye_pos = calculate_eye_position(g_perspectiveMat, g_mvmat, x, y, width, height);
-		cout << "eye position: " << eye_pos << endl;
-		vec4 ray = calculate_ray(g_perspectiveMat, g_mvmat);
-		vec4 other_side = eye_pos + ray * 30;
-		g_v1 = eye_pos;
-		g_v2 = other_side;
+		GLfloat xx = (2.0f * x) / width - 1;
+		GLfloat yy = 1 - (2.0f * y) / height;
+		vec4 v1 = vec4(xx, yy, 0, 1);
+		vec4 v2 = vec4(xx, yy, -1, 1);
+		cout << "v1: " << v1 << endl;
+		cout << "v2: " << v2 << endl;
+		v1 = unproject_vertex(g_perspectiveMat * g_mvmat, v1);
+		v2 = unproject_vertex(g_perspectiveMat * g_mvmat, v2);
+		vec4 ray = v2 - v1;
+		g_v1 = v1;
+		g_v2 = v1 + ray * 30;
+		cout << g_v1 << g_v2 << endl;
 		g_is_line_ready = true;
 		return;
 	}
