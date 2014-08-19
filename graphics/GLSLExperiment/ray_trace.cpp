@@ -109,28 +109,40 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	int index = -1;
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
+		GLfloat dot_product = dot(ray_wor, norm);
+		if (dot_product == 0) {
+			continue;
+		}
+		
 		vec3 a = vec3(triangle_vertecies[i].x, triangle_vertecies[i].y,
 			triangle_vertecies[i].z);
 		GLfloat distance = -Angel::dot(a, norm);
 		eye_pos_v3 = vec3(eye_pos.x, eye_pos.y, eye_pos.z);
 		GLfloat t = -((dot(eye_pos_v3, norm) + distance)
-			/ dot(ray_wor, norm));
+			/ dot_product);
 		//cout << "t = " << t << endl;
 		vec3 intersect_point = eye_pos_v3 + ray_wor * t;
 
 		if (t <= 0) {
 			continue;
 		}
-		if (is_initial_state) {
-			closest_intersect = intersect_point;
-			t_minimal = t;
-			is_initial_state = false;
+		
+		if (PointInTriangleVec4(intersect_point, triangle_vertecies[i * 3],
+			triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2])) {
+			cout << dot_product << endl;
+			cout << ray_wor << endl << norm << endl << normals[i] << endl;
+			getchar();
+			if (is_initial_state) {
+				closest_intersect = intersect_point;
+				t_minimal = t;
+				is_initial_state = false;
+			}
+			else if (t < t_minimal) {
+				closest_intersect = intersect_point;
+				t_minimal = t;
+			}
+			index = i;
 		}
-		else if (t < t_minimal) {
-			closest_intersect = intersect_point;
-			t_minimal = t;
-		}
-		index = i;
 	}
 	return index;
 }
@@ -172,6 +184,7 @@ bool PointInTriangleVec4(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
 	if (p1.z - p2.z < 0.0001) {
 		b1 = true;
 	}
+
 	return b1 && b2 && b3;
 	
 }
