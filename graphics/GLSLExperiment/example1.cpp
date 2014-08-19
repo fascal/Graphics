@@ -64,11 +64,6 @@ void drawLine(vec4 v1, vec4 v2) {
 
 	glDrawArrays(GL_LINE_STRIP, 0, 2);
 
-	/*glDisable(GL_DEPTH_TEST);
-	glutSwapBuffers();
-
-	g_perspectiveMat = perspectiveMat;
-	g_mvmat = modelMat;*/
 }
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -95,8 +90,8 @@ void display() {
 	glFlush();
 
 
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glEnable(GL_DEPTH_TEST);
 	
 	enableBuffer(0, g_nfaces);
@@ -153,6 +148,31 @@ void mouseFunc(int button, int state, int x, int y) {
 		cout << g_v1 << g_v2 << endl;
 		g_is_line_ready = true;
 		ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
+
+		int index = ray_intersection_for_index(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
+		if (index > 0 && index < g_nfaces) {
+			GLfloat posx = g_vertecies[index * 3].x,
+				posy = g_vertecies[index * 3].y,
+				posz = g_vertecies[index * 3].z;
+			
+
+			g_colors[index * 3] = vec4(1, 0, 0, 1);
+			g_colors[index * 3 + 1] = vec4(1, 0, 0, 1);
+			g_colors[index * 3 + 2] = vec4(1, 0, 0, 1);
+			for (int j = 0; j < g_nfaces * 3; j ++) {
+				//g_colors[j] = vec4(1, 0, 0, 1);
+				if (sqrt(pow((g_vertecies[j].x - posx), 2) + pow((g_vertecies[j].y - posy), 2) + pow((g_vertecies[j].z - posz), 2)) < 20) {
+					g_colors[j] = vec4(1, 0, 0, 1);
+				}
+			}
+			glBindBuffer(GL_ARRAY_BUFFER, g_buffers[0]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* g_nfaces * 3, sizeof(vec4)* g_nfaces * 3, g_colors);
+			display();
+			cout << "index: " << index << endl;
+		}
+		else {
+			cout << "index out of bound: " << index << endl;
+		}
 		return;
 	}
 	g_mouseButton = button;
@@ -167,12 +187,12 @@ void mouseFunc(int button, int state, int x, int y) {
 		}
 		else {
 			if (button == 3) {
-				g_scaleMat *= Angel::Scale(2, 2, 2);
+				g_scaleMat *= Angel::Scale(1.2, 1.2, 1.2);
 			}
 			else {
-				g_scaleMat *= Angel::Scale(0.5, 0.5, 0.5);
+				g_scaleMat *= Angel::Scale(0.83, 0.83, 0.83);
 			}
-			display();
+			display(); 
 		}
 
 	}
@@ -241,37 +261,37 @@ int main(int argc, char **argv) {
 }
 
 #pragma region ray tracing
-GLfloat sign(vec2 p1, vec2 p2, vec2 p3)
-{
-	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
-
-bool PointInTriangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3)
-{
-	bool b1, b2, b3;
-
-	b1 = sign(pt, v1, v2) < 0.0f;
-	b2 = sign(pt, v2, v3) < 0.0f;
-	b3 = sign(pt, v3, v1) < 0.0f;
-
-	return ((b1 == b2) && (b2 == b3));
-}
-
-bool PointInTriangle(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
-	bool b1, b2, b3;
-	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
-		p2t = vec2(pt.x, pt.y);
-	b1 = PointInTriangle(p2t, p21, p22, p23);
-	vec2 p212 = vec2(p1.x, p1.y), p222 = vec2(p2.x, p2.y), p232 = vec2(p3.x, p3.y),
-		p2t2 = vec2(pt.x, pt.y);
-	b2 = PointInTriangle(p2t2, p212, p222, p232);
-	vec2 p213 = vec2(p1.x, p1.y), p223 = vec2(p2.x, p2.y), p233 = vec2(p3.x, p3.y),
-		p2t3 = vec2(pt.x, pt.y);
-	b3 = PointInTriangle(p2t3, p213, p223, p233);
-
-	return b1 && b2 && b3;
-	
-}
+//GLfloat sign(vec2 p1, vec2 p2, vec2 p3)
+//{
+//	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+//}
+//
+//bool PointInTriangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3)
+//{
+//	bool b1, b2, b3;
+//
+//	b1 = sign(pt, v1, v2) < 0.0f;
+//	b2 = sign(pt, v2, v3) < 0.0f;
+//	b3 = sign(pt, v3, v1) < 0.0f;
+//
+//	return ((b1 == b2) && (b2 == b3));
+//}
+//
+//bool PointInTriangle(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
+//	bool b1, b2, b3;
+//	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
+//		p2t = vec2(pt.x, pt.y);
+//	b1 = PointInTriangle(p2t, p21, p22, p23);
+//	vec2 p212 = vec2(p1.x, p1.y), p222 = vec2(p2.x, p2.y), p232 = vec2(p3.x, p3.y),
+//		p2t2 = vec2(pt.x, pt.y);
+//	b2 = PointInTriangle(p2t2, p212, p222, p232);
+//	vec2 p213 = vec2(p1.x, p1.y), p223 = vec2(p2.x, p2.y), p233 = vec2(p3.x, p3.y),
+//		p2t3 = vec2(pt.x, pt.y);
+//	b3 = PointInTriangle(p2t3, p213, p223, p233);
+//
+//	return b1 && b2 && b3;
+//	
+//}
 
 GLfloat pointDistance(vec4 p1, vec4 p2) {
 	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
@@ -358,8 +378,8 @@ vec4* allocRandomColor(int nfaces) {
 		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
 		float z = (i / (float)nfaces * 3) * 2 - 1.5;
 		//colors[i] = vec4(z, z, z, 1);
-		colors[i] = vec4(r1, r2, r3, 1);
-		//colors[i] = vec4(0, 0, 1, 1);
+		//colors[i] = vec4(r1, r2, r3, 1);
+		colors[i] = vec4(0, 0, 1, 1);
 	}
 	g_colors = colors;
 	return colors;
