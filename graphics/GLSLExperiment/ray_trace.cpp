@@ -99,7 +99,46 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 	return closest_intersect;
 }
 
+bool isFiniteNumber(GLfloat x) {
+	return (x <= FLT_MAX && x >= -FLT_MAX);
+}
 
+bool isAbnormalTriangle(vec4 v1, vec4 v2, vec4 v3) {
+	return (v3.y - v1.y) * (v2.x - v1.x) == (v3.x - v1.x) * (v2.y - v1.y);
+}
+
+bool isTwoPointClose(vec4 v1, vec4 v2) {
+	if (sqrt(pow(v1.x - v2.x, 2) + pow(v1.y - v2.y, 2) + pow(v1.z - v2.z, 2)) < 300) {
+		cout << "HI" << endl;
+	}
+	return sqrt(pow(v1.x - v2.x, 2) + pow(v1.y - v2.y, 2) + pow(v1.z - v2.z, 2)) < 3;
+}
+bool PointInTriangleVec4_2(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
+	bool b1, b2, b3;
+	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
+		p2t = vec2(pt.x, pt.y);
+	b1 = PointInTriangle(p2t, p21, p22, p23);
+	vec2 p212 = vec2(p1.y, p1.z), p222 = vec2(p2.y, p2.z), p232 = vec2(p3.y, p3.z),
+		p2t2 = vec2(pt.y, pt.z);
+	b2 = PointInTriangle(p2t2, p212, p222, p232);
+	vec2 p213 = vec2(p1.z, p1.x), p223 = vec2(p2.z, p2.x), p233 = vec2(p3.z, p3.x),
+		p2t3 = vec2(pt.z, pt.x);
+	b3 = PointInTriangle(p2t3, p213, p223, p233);
+	cout << b1 << b2 << b3 << endl;
+	if (abs(p1.x - p2.x) < 0.0001) {
+		b2 = true;
+	}
+	if (abs(p1.y - p2.y) < 0.0001) {
+		b3 = true;
+	}
+	if (abs(p1.z - p2.z) < 0.0001) {
+		b1 = true;
+	}
+
+	cout << b1 << b2 << b3 << endl;
+	return b1 && b2 && b3;
+
+}
 int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	int ntriangles, vec3 ray_wor, vec4 eye_pos) {
 	bool is_initial_state = true;
@@ -110,7 +149,7 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
 		GLfloat dot_product = dot(ray_wor, norm);
-		if (dot_product == 0) {
+		if (dot_product == 0 || !isfinite(dot_product) || isAbnormalTriangle(triangle_vertecies[i * 3], triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2])) {
 			continue;
 		}
 		
@@ -126,12 +165,29 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 		if (t <= 0) {
 			continue;
 		}
-		
+		//cout << "hi" << endl;
+		//if (isTwoPointClose(intersect_point, triangle_vertecies[i * 3]) &&
+		//	isTwoPointClose(intersect_point, triangle_vertecies[i * 3 + 1]) &&
+		//	isTwoPointClose(intersect_point, triangle_vertecies[i * 3 + 2])) {
+		//	cout << "intersect point: " << intersect_point << endl
+		//		<< "point1: " << triangle_vertecies[i * 3] << endl
+		//		<< "point2: " << triangle_vertecies[i * 3 + 1] << endl
+		//		<< "point3: " << triangle_vertecies[i * 3 + 2] << endl;
+		//}
+		//else {
+		//	cout << intersect_point << triangle_vertecies[i * 3] << endl;
+		//}
 		if (PointInTriangleVec4(intersect_point, triangle_vertecies[i * 3],
 			triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2])) {
-			cout << dot_product << endl;
-			cout << ray_wor << endl << norm << endl << normals[i] << endl;
-			getchar();
+			cout << "intersect point: " << intersect_point << endl
+				<< "point1: " << triangle_vertecies[i * 3] << endl
+				<< "point2: " << triangle_vertecies[i * 3 + 1] << endl
+				<< "point3: " << triangle_vertecies[i * 3 + 2] << endl;
+			cout << "dot_product: " << dot_product << endl;
+			cout << "t = " << t << endl;
+		/*	PointInTriangleVec4_2(intersect_point, triangle_vertecies[i * 3],
+				triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2]);*/
+			//getchar();
 			if (is_initial_state) {
 				closest_intersect = intersect_point;
 				t_minimal = t;
@@ -142,6 +198,7 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 				t_minimal = t;
 			}
 			index = i;
+			//cout << "index: " << index << endl;
 		}
 	}
 	return index;
@@ -163,6 +220,13 @@ bool PointInTriangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3)
 	return ((b1 == b2) && (b2 == b3));
 }
 
+bool isequal(GLfloat f1, GLfloat f2) {
+	return abs(f1 - f2) < 0.0001;
+}
+
+bool isequal(GLfloat f1, GLfloat f2, GLfloat f3) {
+	return isequal(f1, f2) && isequal(f2, f3);
+}
 bool PointInTriangleVec4(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
 	bool b1, b2, b3;
 	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
@@ -175,16 +239,26 @@ bool PointInTriangleVec4(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
 		p2t3 = vec2(pt.z, pt.x);
 	b3 = PointInTriangle(p2t3, p213, p223, p233);
 
-	if (p1.x - p2.x < 0.0001) {
-		b2 = true;
+	//if (abs(p1.x - p2.x) < 0.0001) {
+	//	b2 = true;
+	//}
+	//if (abs(p1.y - p2.y) < 0.0001) {
+	//	b3 = true;
+	//}
+	//if (abs(p1.z - p2.z) < 0.0001) {
+	//	b1 = true;
+	//}
+	if (isequal(p1.x, p2.x, p3.x)) {
+		return b2;
 	}
-	if (p1.y - p2.y < 0.0001) {
-		b3 = true;
+	else if (isequal(p1.y, p2.y, p3.y)) {
+		return b3;
 	}
-	if (p1.z - p2.z < 0.0001) {
-		b1 = true;
+	else if (isequal(p1.z, p2.z, p3.z)) {
+		return b1;
 	}
-
-	return b1 && b2 && b3;
+	else {
+		return b1 && b2 && b3;
+	}
 	
 }

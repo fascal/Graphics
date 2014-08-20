@@ -18,6 +18,7 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer);
 void loadVertecies();
 void genTestVertecies();
+vec4 get_normal(vec4 a, vec4 b, vec4 c);
 
 GLuint g_program;
 
@@ -51,7 +52,7 @@ void drawLine(vec4 v1, vec4 v2) {
 	vertecies[1] = v2;
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* 2);
 	colors[0] = vec4(1, 0, 0, 1);
-	colors[1] = vec4(0, 0, 0, 1);
+	colors[1] = vec4(1, 0, 0, 1);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4)* 2, vertecies);
 	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* 2, sizeof(vec4)* 2, colors);
 	GLuint vPosition = glGetAttribLocation(g_program, "vPosition");
@@ -93,12 +94,12 @@ void display() {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glEnable(GL_DEPTH_TEST);
-	
-	enableBuffer(0, g_nfaces);
-	glDrawArrays(GL_TRIANGLES, 0, g_nfaces * 3);
 	if (g_is_line_ready) {
 		drawLine(g_v1, g_v2);
 	}
+	enableBuffer(0, g_nfaces);
+	glDrawArrays(GL_TRIANGLES, 0, g_nfaces * 3);
+
 	glDisable(GL_DEPTH_TEST);
 
 	glutSwapBuffers();
@@ -147,9 +148,10 @@ void mouseFunc(int button, int state, int x, int y) {
 		g_v2 = v1 + ray * 30;
 		cout << g_v1 << g_v2 << endl;
 		g_is_line_ready = true;
-		ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
+		//ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
 
 		int index = ray_intersection_for_index(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
+		cout << "index: " << index << endl;
 		if (index > 0 && index < g_nfaces) {
 			GLfloat posx = g_vertecies[index * 3].x,
 				posy = g_vertecies[index * 3].y,
@@ -168,7 +170,7 @@ void mouseFunc(int button, int state, int x, int y) {
 			glBindBuffer(GL_ARRAY_BUFFER, g_buffers[0]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* g_nfaces * 3, sizeof(vec4)* g_nfaces * 3, g_colors);
 			display();
-			cout << "index: " << index << endl;
+
 		}
 		else {
 			cout << "index out of bound: " << index << endl;
@@ -187,10 +189,10 @@ void mouseFunc(int button, int state, int x, int y) {
 		}
 		else {
 			if (button == 3) {
-				g_scaleMat *= Angel::Scale(1.2, 1.2, 1.2);
+				g_scaleMat *= Angel::Scale(1.2f, 1.2f, 1.2f);
 			}
 			else {
-				g_scaleMat *= Angel::Scale(0.83, 0.83, 0.83);
+				g_scaleMat *= Angel::Scale(0.83f, 0.83f, 0.83f);
 			}
 			display(); 
 		}
@@ -376,7 +378,7 @@ vec4* allocRandomColor(int nfaces) {
 	vec4 *colors = (vec4*)malloc(sizeof(vec4)* nfaces * 3);
 	for (int i = 0; i < nfaces * 3; i++) {
 		float r1 = rand() / (float)RAND_MAX, r2 = rand() / (float)RAND_MAX, r3 = rand() / (float)RAND_MAX;
-		float z = (i / (float)nfaces * 3) * 2 - 1.5;
+		float z = (i / (float)nfaces * 3.0f) * 2 - 1.5;
 		//colors[i] = vec4(z, z, z, 1);
 		//colors[i] = vec4(r1, r2, r3, 1);
 		colors[i] = vec4(0, 0, 1, 1);
@@ -455,7 +457,23 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 	*_nfacebuffer = TriangleNum;
 
 	g_vertecies = facebuffer;
+
+	for (int i = 0; i < TriangleNum; i++) {
+		norms[i] = get_normal(facebuffer[i * 3],
+			facebuffer[i * 3 + 1], facebuffer[i * 3 + 2]);
+	}
 	g_norms = norms;
 }
 
 #pragma endregion
+
+vec4 get_normal(vec4 a, vec4 b, vec4 c) {
+	vec3 ab = vec3(b.x - a.x, b.y - a.y, b.z - a.z);
+	vec3 ac = vec3(c.x - a.x, c.y - a.y, c.z - a.z);
+	GLfloat factor = 100;
+	vec3 n = Angel::cross(ab, ac);
+	GLfloat d = factor * sqrt(pow(n.x, 2) + pow(n.y, 2) + pow(n.z, 2));
+	n /= d;
+	n *= 100;
+	return vec4(n.x, n.y, n.z, 1);
+}
