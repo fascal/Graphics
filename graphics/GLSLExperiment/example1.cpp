@@ -139,13 +139,18 @@ void mouseFunc(int button, int state, int x, int y) {
 		GLfloat yy = 1 - (2.0f * y) / height;
 		vec4 v1 = vec4(xx, yy, 0, 1);
 		vec4 v2 = vec4(xx, yy, -1, 1);
-		cout << "v1: " << v1 << endl;
-		cout << "v2: " << v2 << endl;
+
 		v1 = unproject_vertex(g_perspectiveMat * g_mvmat, v1);
 		v2 = unproject_vertex(g_perspectiveMat * g_mvmat, v2);
+		cout << "v1: " << v1 << endl;
+		cout << "v2: " << v2 << endl;
 		vec4 ray = v2 - v1;
+		GLfloat d = sqrt(pow(ray.x, 2) + pow(ray.y, 2) + pow(ray.z, 2));
+		ray = vec4(ray.x / d, ray.y / d, ray.z / d, 0);
 		g_v1 = v1;
 		g_v2 = v1 + ray * 30;
+		cout << "v1: " << g_v1 << endl;
+		cout << "v2: " << g_v2 << endl;
 		cout << g_v1 << g_v2 << endl;
 		g_is_line_ready = true;
 		//ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
@@ -470,10 +475,8 @@ void loadSTLfile(string _filename, vec4** _facebuffer, int* _nfacebuffer) {
 vec4 get_normal(vec4 a, vec4 b, vec4 c) {
 	vec3 ab = vec3(b.x - a.x, b.y - a.y, b.z - a.z);
 	vec3 ac = vec3(c.x - a.x, c.y - a.y, c.z - a.z);
-	GLfloat factor = 100;
 	vec3 n = Angel::cross(ab, ac);
-	GLfloat d = factor * sqrt(pow(n.x, 2) + pow(n.y, 2) + pow(n.z, 2));
+	GLfloat d =  sqrt(pow(n.x, 2) + pow(n.y, 2) + pow(n.z, 2));
 	n /= d;
-	n *= 100;
 	return vec4(n.x, n.y, n.z, 1);
 }

@@ -139,6 +139,19 @@ bool PointInTriangleVec4_2(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
 	return b1 && b2 && b3;
 
 }
+
+vec4 get_normal2(vec4 a, vec4 b, vec4 c) {
+	vec3 ab = vec3(b.x - a.x, b.y - a.y, b.z - a.z);
+	cout << "ab: " << ab << endl;
+	vec3 ac = vec3(c.x - a.x, c.y - a.y, c.z - a.z);
+	cout << "ac: " << ac << endl;
+	vec3 n = Angel::cross(ab, ac);
+	GLfloat d = sqrt(pow(n.x, 2) + pow(n.y, 2) + pow(n.z, 2));
+	n /= d;
+	cout << "vec4: " << vec4(n.x, n.y, n.z, 1) << endl;
+	return vec4(n.x, n.y, n.z, 1);
+}
+
 int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	int ntriangles, vec3 ray_wor, vec4 eye_pos) {
 	bool is_initial_state = true;
@@ -146,6 +159,7 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	GLfloat t_minimal = 0;
 	vec3 eye_pos_v3;
 	int index = -1;
+	cout << "----------------" << endl;
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
 		GLfloat dot_product = dot(ray_wor, norm);
@@ -153,12 +167,13 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 			continue;
 		}
 		
-		vec3 a = vec3(triangle_vertecies[i].x, triangle_vertecies[i].y,
-			triangle_vertecies[i].z);
+		vec3 a = vec3(triangle_vertecies[i * 3].x, triangle_vertecies[i * 3].y,
+			triangle_vertecies[i * 3].z);
 		GLfloat distance = -Angel::dot(a, norm);
 		eye_pos_v3 = vec3(eye_pos.x, eye_pos.y, eye_pos.z);
 		GLfloat t = -((dot(eye_pos_v3, norm) + distance)
 			/ dot_product);
+
 		//cout << "t = " << t << endl;
 		vec3 intersect_point = eye_pos_v3 + ray_wor * t;
 
@@ -177,14 +192,22 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 		//else {
 		//	cout << intersect_point << triangle_vertecies[i * 3] << endl;
 		//}
+
 		if (PointInTriangleVec4(intersect_point, triangle_vertecies[i * 3],
 			triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2])) {
 			cout << "intersect point: " << intersect_point << endl
 				<< "point1: " << triangle_vertecies[i * 3] << endl
 				<< "point2: " << triangle_vertecies[i * 3 + 1] << endl
 				<< "point3: " << triangle_vertecies[i * 3 + 2] << endl;
-			cout << "dot_product: " << dot_product << endl;
+			cout << "eye_pos_v3: " << eye_pos_v3 << endl;
+			cout << "ray_wor: " << ray_wor << endl;
+			cout << "normal: " << norm << endl;
+			get_normal2(triangle_vertecies[i * 3], triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2]);
 			cout << "t = " << t << endl;
+			cout << "dot(eye_pos_v3, norm): " << dot(eye_pos_v3, norm) << endl;
+			cout << "distance: " << distance << endl;
+			cout << "dot_product: " << dot_product << endl;
+			cout << "t: " << t << endl;
 		/*	PointInTriangleVec4_2(intersect_point, triangle_vertecies[i * 3],
 				triangle_vertecies[i * 3 + 1], triangle_vertecies[i * 3 + 2]);*/
 			//getchar();
