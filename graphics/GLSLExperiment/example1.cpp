@@ -142,21 +142,19 @@ void mouseFunc(int button, int state, int x, int y) {
 
 		v1 = unproject_vertex(g_perspectiveMat * g_mvmat, v1);
 		v2 = unproject_vertex(g_perspectiveMat * g_mvmat, v2);
-		cout << "v1: " << v1 << endl;
-		cout << "v2: " << v2 << endl;
-		vec4 ray = v2 - v1;
+
+		vec4 ray_vec4 = v2 - v1;
+		vec3 ray = vec3(ray_vec4.x, ray_vec4.y, ray_vec4.z);
 		GLfloat d = sqrt(pow(ray.x, 2) + pow(ray.y, 2) + pow(ray.z, 2));
-		ray = vec4(ray.x / d, ray.y / d, ray.z / d, 0);
+		ray /= d;
+		vec3 point = vec3(v1.x, v1.y, v1.z) + ray * 300;
 		g_v1 = v1;
-		g_v2 = v1 + ray * 30;
-		cout << "v1: " << g_v1 << endl;
-		cout << "v2: " << g_v2 << endl;
-		cout << g_v1 << g_v2 << endl;
+		g_v2 = vec4(point.x, point.y, point.z, 1);
+
+
 		g_is_line_ready = true;
-		//ray_intersection(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
 
 		int index = ray_intersection_for_index(g_vertecies, g_norms, g_nfaces, vec3(ray.x, ray.y, ray.z), v1);
-		cout << "index: " << index << endl;
 		if (index > 0 && index < g_nfaces) {
 			GLfloat posx = g_vertecies[index * 3].x,
 				posy = g_vertecies[index * 3].y,
@@ -268,37 +266,7 @@ int main(int argc, char **argv) {
 }
 
 #pragma region ray tracing
-//GLfloat sign(vec2 p1, vec2 p2, vec2 p3)
-//{
-//	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-//}
-//
-//bool PointInTriangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3)
-//{
-//	bool b1, b2, b3;
-//
-//	b1 = sign(pt, v1, v2) < 0.0f;
-//	b2 = sign(pt, v2, v3) < 0.0f;
-//	b3 = sign(pt, v3, v1) < 0.0f;
-//
-//	return ((b1 == b2) && (b2 == b3));
-//}
-//
-//bool PointInTriangle(vec4 pt, vec4 p1, vec4 p2, vec4 p3) {
-//	bool b1, b2, b3;
-//	vec2 p21 = vec2(p1.x, p1.y), p22 = vec2(p2.x, p2.y), p23 = vec2(p3.x, p3.y),
-//		p2t = vec2(pt.x, pt.y);
-//	b1 = PointInTriangle(p2t, p21, p22, p23);
-//	vec2 p212 = vec2(p1.x, p1.y), p222 = vec2(p2.x, p2.y), p232 = vec2(p3.x, p3.y),
-//		p2t2 = vec2(pt.x, pt.y);
-//	b2 = PointInTriangle(p2t2, p212, p222, p232);
-//	vec2 p213 = vec2(p1.x, p1.y), p223 = vec2(p2.x, p2.y), p233 = vec2(p3.x, p3.y),
-//		p2t3 = vec2(pt.x, pt.y);
-//	b3 = PointInTriangle(p2t3, p213, p223, p233);
-//
-//	return b1 && b2 && b3;
-//	
-//}
+
 
 GLfloat pointDistance(vec4 p1, vec4 p2) {
 	return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
