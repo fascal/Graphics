@@ -167,6 +167,9 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 			continue;
 		}
 		
+		if (dot(ray_wor, norm) >= 0) {
+			continue;
+		}
 		vec3 a = vec3(triangle_vertecies[i * 3].x, triangle_vertecies[i * 3].y,
 			triangle_vertecies[i * 3].z);
 		GLfloat distance = -Angel::dot(a, norm);
@@ -215,14 +218,20 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 				closest_intersect = intersect_point;
 				t_minimal = t;
 				is_initial_state = false;
+				index = i;
 			}
 			else if (t < t_minimal) {
 				closest_intersect = intersect_point;
 				t_minimal = t;
+				index = i;
 			}
-			index = i;
+			
 			//cout << "index: " << index << endl;
 		}
+	}
+	if (index != -1) {
+		cout << triangle_vertecies[index * 3] << endl;
+		cout << "minimal t: " << t_minimal << endl;
 	}
 	return index;
 }
