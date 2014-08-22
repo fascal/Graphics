@@ -172,11 +172,12 @@ void mouseFunc(int button, int state, int x, int y) {
 			}
 			glBindBuffer(GL_ARRAY_BUFFER, g_buffers[0]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(vec4)* g_nfaces * 3, sizeof(vec4)* g_nfaces * 3, g_colors);
-			display();
+			//display();
 
 		}
 		else {
-			cout << "index out of bound: " << index << endl;
+			//cout << "index out of bound: " << index << endl;
+			cout << "no intersection." << endl;
 		}
 		return;
 	}

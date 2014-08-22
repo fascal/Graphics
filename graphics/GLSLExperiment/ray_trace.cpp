@@ -1,6 +1,7 @@
 #include "ray_trace.h"
 
 using namespace std;
+
 vec4 calculate_ray(mat4 perspective_mat, mat4 model_mat) {
 
 
@@ -44,6 +45,7 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 	vec3 closest_intersect = NULL;
 	GLfloat t_minimal = 0;
 	vec3 eye_pos_v3;
+	vec3 intersect_point;
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
 		vec3 a = vec3(triangle_vertecies[i].x, triangle_vertecies[i].y,
@@ -52,7 +54,7 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 		eye_pos_v3 = vec3(eye_pos.x, eye_pos.y, eye_pos.z);
 		GLfloat t = -((dot(eye_pos_v3, norm) + distance)
 			/ dot(ray_wor, norm));
-		vec3 intersect_point = eye_pos_v3 + ray_wor * t;
+		intersect_point = eye_pos_v3 + ray_wor * t;
 
 		if (t <= 0) {
 			continue;
@@ -67,6 +69,7 @@ vec3 ray_intersection(vec4 *triangle_vertecies, vec4 *normals,
 			t_minimal = t;
 		}
 	}
+
 	return closest_intersect;
 }
 
@@ -119,6 +122,7 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 	GLfloat t_minimal = 0;
 	vec3 eye_pos_v3;
 	int index = -1;
+	vec3 intersect_point;
 	for (int i = 0; i < ntriangles; i++) {
 		vec3 norm = vec3(normals[i].x, normals[i].y, normals[i].z);
 		GLfloat dot_product = dot(ray_wor, norm);
@@ -136,7 +140,7 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 		GLfloat t = -((dot(eye_pos_v3, norm) + distance)
 			/ dot_product);
 
-		vec3 intersect_point = eye_pos_v3 + ray_wor * t;
+		intersect_point = eye_pos_v3 + ray_wor * t;
 
 		if (t <= 0) {
 			continue;
@@ -160,7 +164,9 @@ int ray_intersection_for_index(vec4 *triangle_vertecies, vec4 *normals,
 			
 		}
 	}
-
+	if (index != -1) {
+		cout << "intersection: " << intersect_point << endl;
+	}
 	return index;
 }
 
